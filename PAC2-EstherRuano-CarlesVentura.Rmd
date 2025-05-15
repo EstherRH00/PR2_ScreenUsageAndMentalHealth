@@ -17,7 +17,7 @@ toc-title: "Índex"
 
 1. Triem [aquest dfset](https://www.kaggle.com/dfsets/waqi786/mental-health-and-technology-usage-dfset) i els motius pels quals ens sembla interessant (justificació personal)
 2. Per què les dades del dfset ens semblen riques i interessants
-3. Com tractarem les columnes de `Mental_health_status` (categòrica) i `Sleep_hours` (numèrica) com a variables objectiu en el nostre anàlisi.
+3. Com tractarem les columnes de `Mental_health_status` (categòrica) com a variables objectiu en el nostre anàlisi supervisat.
 4. Importem les llibreries que farem servir.
 
 
@@ -31,6 +31,8 @@ toc-title: "Índex"
 # install.packages("gridExtra")
 # install.packages("mltools")
 # install.packages("data.table")
+# install.packages("caret")
+# install.packages("randomForest")
 ## Carregar les llibreries
 library(dplyr)
 # library(VIM)
@@ -40,6 +42,8 @@ library(ggplot2)
 library(gridExtra)
 library(mltools)
 library(data.table)
+library(caret)
+library(randomForest)
 ```
 
 # Càrrega de les dades
@@ -152,7 +156,7 @@ for (col in names(df)[num_cols]) {
 
 ### Transformar variables categòriques
 
-Per tal de treballar amb les variables categòriques, farem [one-hot encoding](https://es.wikipedia.org/wiki/One-hot), ja que és el més aconsellable per a entrenar models després. Farem servir el mètode [`one_hot`](https://www.rdocumentation.org/packages/mltools/versions/0.3.5/topics/one_hot) de la llibreria `mltools`. Consultem la documentació per veure que primer cal transformar-la en una `df.table` i, després, podem aplicar el mètode i mostrar les primeres files del dfset.
+Per tal de treballar amb les variables categòriques, farem [one-hot encoding](https://es.wikipedia.org/wiki/One-hot), ja que és el més aconsellable per a entrenar models després. Farem servir el mètode [`one_hot`](https://www.rdocumentation.org/packages/mltools/versions/0.3.5/topics/one_hot) de la llibreria `mltools`. Consultem la documentació per veure que primer cal transformar-la en una `df.table` i, després, podem aplicar el mètode i mostrar les primeres files del dataset.
 
 ```{r chunk04}
 
@@ -172,6 +176,84 @@ kbl(head(df_encoded), booktabs = TRUE) %>%
 # Anàlisi de les dades
  
 ## Mètode supervisat
+
+**TODO** More yapping.
+
+Triem [Random Forest](https://en.wikipedia.org/wiki/Random_forest). (
+Handles nonlinear relationships
+
+Works well with mixed data types (numerical + one-hot categorical)
+
+Naturally supports multi-class problems
+
+Has built-in feature importance
+
+Robust to outliers and missing values
+
+Requires minimal tuning to perform reasonably well
+)
+
+El primer pas és separar la variable objectiu, sobre la qual no volem aplicar el one-hot encoding. Després separem entre conjunt d'entrenament i conjunt de test utilitzant [createDataPartition](https://www.rdocumentation.org/packages/caret/versions/7.0-1/topics/createDataPartition). Triem la seed 100.
+
+Posar `as.factor` fa que sigui categoric i que l'arbre funcioni més endavant
+
+```{r chunk05}
+
+X = copy(df_encoded)
+X = X[, c("Mental_Health_Status_Excellent", "Mental_Health_Status_Fair", 
+                    "Mental_Health_Status_Good", "Mental_Health_Status_Poor") := NULL]
+X$Mental_Health_Status <- as.factor(df$Mental_Health_Status)
+X = as.data.table(X)
+
+set.seed(100)
+
+train_index <- createDataPartition(X$Mental_Health_Status, p = 0.8, list = FALSE)
+
+train <- X[train_index, ]
+test <- X[-train_index, ]
+
+print(paste("Mida del dataset d'entrenament: ", nrow(train), " files i ", ncol(train), " columnes."))
+print(paste("Mida del dataset de test: ", nrow(test), " files i ", ncol(test), " columnes."))
+
+kbl(head(train), booktabs = TRUE) %>%
+  kable_styling(latex_options = c("scale_down")) %>%
+  scroll_box(width = "900px")
+```
+Blablabla el model
+
+```{r chunk06}
+model_rf <- randomForest(Mental_Health_Status ~ ., data = train, ntree = 200, importance = TRUE)
+
+
+preds <- predict(model_rf, newdata = test)
+conf_mat <- confusionMatrix(preds, test$Mental_Health_Status)
+print(conf_mat)
+```
+**TODO** Redactar millor
+
+Slightly better than random guessing (No Information Rate = 0.2518), but not by much.
+
+P-Value = 0.05866 means the model is not statistically significantly better than guessing at a 5% confidence level.
+Kappa accounts for agreement due to chance.
+
+Values near 0 = almost no predictive power beyond chance.
+
+Rule of thumb:
+
+    > 0.6: good
+
+    0.4–0.6: moderate
+
+    0.2–0.4: fair
+
+    < 0.2: poor
+
+So: this model is performing very poorly
+All sensitivities are low: the model is struggling to correctly identify any class.
+
+Balanced accuracy hovers around 50% — again, barely better than flipping a coin.
+
+probablement unsupervised learning funcioni millor
 
 ## Mètode no supervisat
 

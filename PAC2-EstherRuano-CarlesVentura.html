@@ -617,8 +617,8 @@ dfset</a> i els motius pels quals ens sembla interessant (justificació
 personal)</li>
 <li>Per què les dades del dfset ens semblen riques i interessants</li>
 <li>Com tractarem les columnes de <code>Mental_health_status</code>
-(categòrica) i <code>Sleep_hours</code> (numèrica) com a variables
-objectiu en el nostre anàlisi.</li>
+(categòrica) com a variables objectiu en el nostre anàlisi
+supervisat.</li>
 <li>Importem les llibreries que farem servir.</li>
 </ol>
 <pre class="r"><code># Instal·lacio de paquets
@@ -630,6 +630,8 @@ objectiu en el nostre anàlisi.</li>
 # install.packages(&quot;gridExtra&quot;)
 # install.packages(&quot;mltools&quot;)
 # install.packages(&quot;data.table&quot;)
+# install.packages(&quot;caret&quot;)
+# install.packages(&quot;randomForest&quot;)
 ## Carregar les llibreries
 library(dplyr)</code></pre>
 <pre><code>## 
@@ -664,6 +666,23 @@ library(gridExtra)</code></pre>
 <pre><code>## The following objects are masked from &#39;package:dplyr&#39;:
 ## 
 ##     between, first, last</code></pre>
+<pre class="r"><code>library(caret)</code></pre>
+<pre><code>## Cargando paquete requerido: lattice</code></pre>
+<pre class="r"><code>library(randomForest)</code></pre>
+<pre><code>## Warning: package &#39;randomForest&#39; was built under R version 4.4.3</code></pre>
+<pre><code>## randomForest 4.7-1.2</code></pre>
+<pre><code>## Type rfNews() to see new features/changes/bug fixes.</code></pre>
+<pre><code>## 
+## Adjuntando el paquete: &#39;randomForest&#39;</code></pre>
+<pre><code>## The following object is masked from &#39;package:gridExtra&#39;:
+## 
+##     combine</code></pre>
+<pre><code>## The following object is masked from &#39;package:ggplot2&#39;:
+## 
+##     margin</code></pre>
+<pre><code>## The following object is masked from &#39;package:dplyr&#39;:
+## 
+##     combine</code></pre>
 </div>
 <div id="càrrega-de-les-dades" class="section level1">
 <h1>Càrrega de les dades</h1>
@@ -1478,7 +1497,7 @@ el mètode <a href="https://www.rdocumentation.org/packages/mltools/versions/0.3
 de la llibreria <code>mltools</code>. Consultem la documentació per
 veure que primer cal transformar-la en una <code>df.table</code> i,
 després, podem aplicar el mètode i mostrar les primeres files del
-dfset.</p>
+dataset.</p>
 <pre class="r"><code>df_dt &lt;- as.data.table(df)
 
 for (col in categorical_df) {
@@ -2044,6 +2063,583 @@ USER-00006
 <h1>Anàlisi de les dades</h1>
 <div id="mètode-supervisat" class="section level2">
 <h2>Mètode supervisat</h2>
+<p><strong>TODO</strong> More yapping.</p>
+<p>Triem <a href="https://en.wikipedia.org/wiki/Random_forest">Random
+Forest</a>. ( Handles nonlinear relationships</p>
+<p>Works well with mixed data types (numerical + one-hot
+categorical)</p>
+<p>Naturally supports multi-class problems</p>
+<p>Has built-in feature importance</p>
+<p>Robust to outliers and missing values</p>
+<p>Requires minimal tuning to perform reasonably well )</p>
+<p>El primer pas és separar la variable objectiu, sobre la qual no volem
+aplicar el one-hot encoding. Després separem entre conjunt d’entrenament
+i conjunt de test utilitzant <a href="https://www.rdocumentation.org/packages/caret/versions/7.0-1/topics/createDataPartition">createDataPartition</a>.
+Triem la seed 100.</p>
+<p>Posar <code>as.factor</code> fa que sigui categoric i que l’arbre
+funcioni més endavant</p>
+<pre class="r"><code>X = copy(df_encoded)
+X = X[, c(&quot;Mental_Health_Status_Excellent&quot;, &quot;Mental_Health_Status_Fair&quot;, 
+                    &quot;Mental_Health_Status_Good&quot;, &quot;Mental_Health_Status_Poor&quot;) := NULL]
+X$Mental_Health_Status &lt;- as.factor(df$Mental_Health_Status)
+X = as.data.table(X)
+
+set.seed(100)
+
+train_index &lt;- createDataPartition(X$Mental_Health_Status, p = 0.8, list = FALSE)
+
+train &lt;- X[train_index, ]
+test &lt;- X[-train_index, ]
+
+print(paste(&quot;Mida del dataset d&#39;entrenament: &quot;, nrow(train), &quot; files i &quot;, ncol(train), &quot; columnes.&quot;))</code></pre>
+<pre><code>## [1] &quot;Mida del dataset d&#39;entrenament:  8002  files i  22  columnes.&quot;</code></pre>
+<pre class="r"><code>print(paste(&quot;Mida del dataset de test: &quot;, nrow(test), &quot; files i &quot;, ncol(test), &quot; columnes.&quot;))</code></pre>
+<pre><code>## [1] &quot;Mida del dataset de test:  1998  files i  22  columnes.&quot;</code></pre>
+<pre class="r"><code>kbl(head(train), booktabs = TRUE) %&gt;%
+  kable_styling(latex_options = c(&quot;scale_down&quot;)) %&gt;%
+  scroll_box(width = &quot;900px&quot;)</code></pre>
+<div style="border: 1px solid #ddd; padding: 5px; overflow-x: scroll; width:900px; ">
+<table class="table" style="margin-left: auto; margin-right: auto;">
+<thead>
+<tr>
+<th style="text-align:left;">
+User_ID
+</th>
+<th style="text-align:right;">
+Age
+</th>
+<th style="text-align:right;">
+Gender_Female
+</th>
+<th style="text-align:right;">
+Gender_Male
+</th>
+<th style="text-align:right;">
+Gender_Other
+</th>
+<th style="text-align:right;">
+Technology_Usage_Hours
+</th>
+<th style="text-align:right;">
+Social_Media_Usage_Hours
+</th>
+<th style="text-align:right;">
+Gaming_Hours
+</th>
+<th style="text-align:right;">
+Screen_Time_Hours
+</th>
+<th style="text-align:right;">
+Stress_Level_High
+</th>
+<th style="text-align:right;">
+Stress_Level_Low
+</th>
+<th style="text-align:right;">
+Stress_Level_Medium
+</th>
+<th style="text-align:right;">
+Sleep_Hours
+</th>
+<th style="text-align:right;">
+Physical_Activity_Hours
+</th>
+<th style="text-align:right;">
+Support_Systems_Access_No
+</th>
+<th style="text-align:right;">
+Support_Systems_Access_Yes
+</th>
+<th style="text-align:right;">
+Work_Environment_Impact_Negative
+</th>
+<th style="text-align:right;">
+Work_Environment_Impact_Neutral
+</th>
+<th style="text-align:right;">
+Work_Environment_Impact_Positive
+</th>
+<th style="text-align:right;">
+Online_Support_Usage_No
+</th>
+<th style="text-align:right;">
+Online_Support_Usage_Yes
+</th>
+<th style="text-align:left;">
+Mental_Health_Status
+</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left;">
+USER-00001
+</td>
+<td style="text-align:right;">
+23
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+6.57
+</td>
+<td style="text-align:right;">
+6.00
+</td>
+<td style="text-align:right;">
+0.68
+</td>
+<td style="text-align:right;">
+12.36
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+8.01
+</td>
+<td style="text-align:right;">
+6.71
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+Good
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+USER-00002
+</td>
+<td style="text-align:right;">
+21
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+3.01
+</td>
+<td style="text-align:right;">
+2.57
+</td>
+<td style="text-align:right;">
+3.74
+</td>
+<td style="text-align:right;">
+7.61
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+7.28
+</td>
+<td style="text-align:right;">
+5.88
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:left;">
+Poor
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+USER-00003
+</td>
+<td style="text-align:right;">
+51
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+3.04
+</td>
+<td style="text-align:right;">
+6.14
+</td>
+<td style="text-align:right;">
+1.26
+</td>
+<td style="text-align:right;">
+3.16
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+8.04
+</td>
+<td style="text-align:right;">
+9.81
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:left;">
+Fair
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+USER-00004
+</td>
+<td style="text-align:right;">
+25
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+3.84
+</td>
+<td style="text-align:right;">
+4.48
+</td>
+<td style="text-align:right;">
+2.59
+</td>
+<td style="text-align:right;">
+13.08
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+5.62
+</td>
+<td style="text-align:right;">
+5.28
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+Excellent
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+USER-00006
+</td>
+<td style="text-align:right;">
+58
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+5.59
+</td>
+<td style="text-align:right;">
+5.74
+</td>
+<td style="text-align:right;">
+0.11
+</td>
+<td style="text-align:right;">
+1.34
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+8.61
+</td>
+<td style="text-align:right;">
+6.54
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:left;">
+Poor
+</td>
+</tr>
+<tr>
+<td style="text-align:left;">
+USER-00007
+</td>
+<td style="text-align:right;">
+63
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+3.38
+</td>
+<td style="text-align:right;">
+2.55
+</td>
+<td style="text-align:right;">
+3.79
+</td>
+<td style="text-align:right;">
+9.78
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+8.61
+</td>
+<td style="text-align:right;">
+1.34
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:right;">
+1
+</td>
+<td style="text-align:right;">
+0
+</td>
+<td style="text-align:left;">
+Excellent
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Blablabla el model</p>
+<pre class="r"><code>model_rf &lt;- randomForest(Mental_Health_Status ~ ., data = train, ntree = 200, importance = TRUE)
+
+
+preds &lt;- predict(model_rf, newdata = test)
+conf_mat &lt;- confusionMatrix(preds, test$Mental_Health_Status)
+print(conf_mat)</code></pre>
+<pre><code>## Confusion Matrix and Statistics
+## 
+##            Reference
+## Prediction  Excellent Fair Good Poor
+##   Excellent       154  143  138  130
+##   Fair            109  140  136  138
+##   Good            157  133  137  125
+##   Poor             83   82   90  103
+## 
+## Overall Statistics
+##                                          
+##                Accuracy : 0.2673         
+##                  95% CI : (0.248, 0.2873)
+##     No Information Rate : 0.2518         
+##     P-Value [Acc &gt; NIR] : 0.05866        
+##                                          
+##                   Kappa : 0.0228         
+##                                          
+##  Mcnemar&#39;s Test P-Value : 2.557e-06      
+## 
+## Statistics by Class:
+## 
+##                      Class: Excellent Class: Fair Class: Good Class: Poor
+## Sensitivity                   0.30616     0.28112     0.27345     0.20766
+## Specificity                   0.72508     0.74467     0.72278     0.83023
+## Pos Pred Value                0.27257     0.26769     0.24819     0.28771
+## Neg Pred Value                0.75645     0.75729     0.74827     0.76037
+## Prevalence                    0.25175     0.24925     0.25075     0.24825
+## Detection Rate                0.07708     0.07007     0.06857     0.05155
+## Detection Prevalence          0.28278     0.26176     0.27628     0.17918
+## Balanced Accuracy             0.51562     0.51290     0.49812     0.51894</code></pre>
+<p><strong>TODO</strong> Redactar millor</p>
+<p>Slightly better than random guessing (No Information Rate = 0.2518),
+but not by much.</p>
+<p>P-Value = 0.05866 means the model is not statistically significantly
+better than guessing at a 5% confidence level. Kappa accounts for
+agreement due to chance.</p>
+<p>Values near 0 = almost no predictive power beyond chance.</p>
+<p>Rule of thumb:</p>
+<pre><code>&gt; 0.6: good
+
+0.4–0.6: moderate
+
+0.2–0.4: fair
+
+&lt; 0.2: poor</code></pre>
+<p>So: this model is performing very poorly All sensitivities are low:
+the model is struggling to correctly identify any class.</p>
+<p>Balanced accuracy hovers around 50% — again, barely better than
+flipping a coin.</p>
+<p>probablement unsupervised learning funcioni millor</p>
 </div>
 <div id="mètode-no-supervisat" class="section level2">
 <h2>Mètode no supervisat</h2>
