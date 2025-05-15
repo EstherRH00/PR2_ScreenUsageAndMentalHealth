@@ -15,8 +15,8 @@ toc-title: "Índex"
 
 **TODO**; tractar que:
 
-1. Triem [aquest dataset](https://www.kaggle.com/datasets/waqi786/mental-health-and-technology-usage-dataset) i els motius pels quals ens sembla interessant (justificació personal)
-2. Per què les dades del dataset ens semblen riques i interessants
+1. Triem [aquest dfset](https://www.kaggle.com/dfsets/waqi786/mental-health-and-technology-usage-dfset) i els motius pels quals ens sembla interessant (justificació personal)
+2. Per què les dades del dfset ens semblen riques i interessants
 3. Com tractarem les columnes de `Mental_health_status` (categòrica) i `Sleep_hours` (numèrica) com a variables objectiu en el nostre anàlisi.
 4. Importem les llibreries que farem servir.
 
@@ -27,31 +27,147 @@ toc-title: "Índex"
 # install.packages("VIM")
 # install.packages("corrplot")
 # install.packages("kableExtra")
+# install.packages("ggplot2")
+# install.packages("gridExtra")
+# install.packages("mltools")
+# install.packages("data.table")
 ## Carregar les llibreries
 library(dplyr)
-library(VIM)
-library(corrplot)
+# library(VIM)
+# library(corrplot)
 library(kableExtra)
+library(ggplot2)
+library(gridExtra)
+library(mltools)
+library(data.table)
 ```
 
 # Càrrega de les dades
 
-Per tal de carregar les dades hem descarregat l'arxiu `csv` de [aquest dataset](https://www.kaggle.com/datasets/waqi786/mental-health-and-technology-usage-dataset) i l'hem desat a la carpeta `/data`. Si inspeccionem l'arxiu veiem que la primera fila correspon als noms de les columnes i que el separador usat és ",". Per llegir les dades fem servir la funció [`read.csv`](https://www.rdocumentation.org/packages/COVID19/versions/2.0.3/topics/read.csv) i indiquem que volem prendre la primera fila com a headers i també marquem `stringsAsFactors = FALSE`: no s'aconsella convertir les cadenes a factors, ja que en dificulta el tractament posterior i pot generar errors [[font](https://blog.r-project.org/2020/02/16/stringsasfactors/)]. Seguidament, en mostrem les primeres línies amb la funció `head()` per fer-ne una primera avaluació.
+Per tal de carregar les dades hem descarregat l'arxiu `csv` de [aquest dfset](https://www.kaggle.com/dfsets/waqi786/mental-health-and-technology-usage-dfset) i l'hem desat a la carpeta `/df`. Si inspeccionem l'arxiu veiem que la primera fila correspon als noms de les columnes i que el separador usat és ",". Per llegir les dades fem servir la funció [`read.csv`](https://www.rdocumentation.org/packages/COVID19/versions/2.0.3/topics/read.csv) i indiquem que volem prendre la primera fila com a headers i també marquem `stringsAsFactors = FALSE`: no s'aconsella convertir les cadenes a factors, ja que en dificulta el tractament posterior i pot generar errors [[font](https://blog.r-project.org/2020/02/16/stringsasfactors/)]. Seguidament, en mostrem les primeres línies amb la funció `head()` per fer-ne una primera avaluació.
 
 Per tal de mostrar la taula, darem servir la llibreria [kableExtra](https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html#Overview). 
 
 ```{r chunk01}
-data <- read.csv("data/mental_health_and_technology_usage_2024.csv", stringsAsFactors = FALSE, sep = ",")
+df <- read.csv("data/mental_health_and_technology_usage_2024.csv", stringsAsFactors = FALSE, sep = ",")
 
-kbl(head(data), booktabs = TRUE) %>%
+print(paste("Mida del dfset: ", nrow(df), " files i ", ncol(df), " columnes."))
+
+kbl(head(df), booktabs = TRUE) %>%
   kable_styling(latex_options = c("scale_down")) %>%
   scroll_box(width = "900px")
 ```
 
-
 ## Anàlisi explorativa de les dades
 
+A continuació volem entendre com es distribueixen les dades i si tenen alguna anomalia. Comencem investigant com son aquestes dades i identificant els rangs de valors, els diferents valors en cada categoria i la quantitat de nuls que trobem. Això ho aconseguim mitjançant les funcions [`summary`](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/summary), [`is.na`](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/NA) i [`unique`](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/unique). Per mostrar-los, de nou, fem servir kableExtra. A més, creem una llista amb les columnes numèriques i una altra amb les categòriques, que ens serà útil més endavant, sense incloure l'id dels usuaris.
+
+```{r chunk02}
+categorical_df <-c("Gender", "Mental_Health_Status", "Stress_Level", "Support_Systems_Access", "Work_Environment_Impact", "Online_Support_Usage")
+numerical_df <- c("Age", "Technology_Usage_Hours", "Social_Media_Usage_Hours", "Gaming_Hours",
+                    "Screen_Time_Hours", "Sleep_Hours", "Physical_Activity_Hours")
+
+
+kbl(summary(df[, numerical_df]), booktabs = TRUE, caption="Resum de les dades") %>%
+  kable_styling(latex_options = c("scale_down")) %>%
+  scroll_box(width = "900px")
+
+kbl(t(colSums(is.na(df))), booktabs = TRUE, caption="Quantitat de dades buides") %>%
+  kable_styling(latex_options = c("scale_down")) %>%
+  scroll_box(width = "900px")
+
+
+cat_values <- sapply(df[, categorical_df], function(col) paste(unique(col), collapse = ", "))
+cat_df <- data.frame(Variable = names(cat_values), Unique_Values = unname(cat_values))
+
+kbl(cat_df, booktabs = TRUE, caption="Dades categòriques", colnames=categorical_df) %>%
+  kable_styling(latex_options = c("scale_down")) %>%
+  scroll_box(width = "900px")
+```
+
+Trobem que no hi ha cap valor nul, cosa positiva. Pel que fa a les variables categòriques, `Support_Systems_Access` i `Online_Support_Usage` es poden transformar en booleans, però les altres tenen més de dues categories i, per tant, n'haurem de fer _one-hot_ encoding; potencialment utilitzant la funció [`one-hot`](https://www.rdocumentation.org/packages/mltools/versions/0.3.5/topics/one_hot) que proporciona R. Mirem les dades numèriques i trobem que les columnes d'hores d'úis de pantalles (`Technology_Usage_Hours`, `Social_Media_Usage_Hours`, `Gaming_Hours` i `Screen_Time_Hours`) es troben en rangs semblants; les mitjanes i medianes són semblants i les distancies entre quartils són semblants. Això ho veurem millor en els `boxplots` que farem a continuació. El mateix passa per les hores de son i d'exercici. 
+
+A continuació mostrem `boxplots` i histogrames per les dades numèriques, així com gràfics de barres per a les categòriques, per entendre millor la seva distribució. Per aconseguir-ho, farem servir la llibreria `ggplot2`, que incorpora totes les gràfiques, i la llibreria `gridExtra`, que ens permet endreçar-les. Ajustem les mides amb `fig.height=20, fig.width=15` per tal que a l'html generat es vegin bé
+
+```{r chunk03, fig.height=20, fig.width=15}
+histograms <- list()
+boxplots <- list()
+
+for (col in numerical_df) {
+  
+  # Histogram
+  histograms[[length(histograms) + 1]] <-  ggplot(df, aes_string(x = col)) +
+    geom_histogram(bins = 30, fill = "steelblue", color = "white") +
+    ggtitle(paste("Histogram of", col))
+  
+  # Boxplot
+  boxplots[[length(boxplots) + 1]] <- ggplot(df, aes_string(y = col)) +
+    geom_boxplot(fill = "tomato", outlier.colour = "red", outlier.shape = 16) +
+    ggtitle(paste("Boxplot of", col))
+}
+
+do.call(grid.arrange, c(histograms, ncol = 2))
+do.call(grid.arrange, c(boxplots, ncol = 4))
+
+barplots <- list()
+
+for (col in categorical_df) {
+  # Barplot
+  barplots[[length(barplots) + 1]] <- ggplot(df, aes_string(x = col)) +
+          geom_bar(fill = "orange") +
+          ggtitle(paste("Bar plot of", col)) +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1))
+}
+
+do.call(grid.arrange, c(barplots, ncol = 3))
+```
+
+
+**TODO** More yapping pero que les dades estan super equilibrades, hi ha una mica d'outliars en les hores però res gaire boig. Per part de les categòriques tampoc hi ha cap biaix, tot està perfectament equilibrat com diria Thanos
+
 ## Neteja de les dades
+
+### Imputació
+
+Com hem vist a l'apartat anterior, cap fila té un valor invàlid o nul; per tant, no cal realitzar cap mena d'imputació de dades.
+
+### Eliminar outliars
+
+**TODO** això es pot discutir, però no veig cap neteja a fer llevat de one-hot encoding, no veig outliers per retallar >.<
+
+
+**TODO** si volem eliminar fent servir el mètode del rang interquartílic, aquest és el codi
+
+```{r outlier-removal}
+"
+for (col in names(df)[num_cols]) {
+  Q1 <- quantile(df[[col]], 0.25, na.rm = TRUE)
+  Q3 <- quantile(df[[col]], 0.75, na.rm = TRUE)
+  IQR <- Q3 - Q1
+  lower_bound <- Q1 - 1.5 * IQR
+  upper_bound <- Q3 + 1.5 * IQR
+  df <- df[df[[col]] >= lower_bound & df[[col]] <= upper_bound, ]
+}"
+```
+
+### Transformar variables categòriques
+
+Per tal de treballar amb les variables categòriques, farem [one-hot encoding](https://es.wikipedia.org/wiki/One-hot), ja que és el més aconsellable per a entrenar models després. Farem servir el mètode [`one_hot`](https://www.rdocumentation.org/packages/mltools/versions/0.3.5/topics/one_hot) de la llibreria `mltools`. Consultem la documentació per veure que primer cal transformar-la en una `df.table` i, després, podem aplicar el mètode i mostrar les primeres files del dfset.
+
+```{r chunk04}
+
+df_dt <- as.data.table(df)
+
+for (col in categorical_df) {
+  df_dt[[col]] <- as.factor(df_dt[[col]])
+}
+
+df_encoded <- one_hot(df_dt, cols = categorical_df)
+
+kbl(head(df_encoded), booktabs = TRUE) %>%
+  kable_styling(latex_options = c("scale_down")) %>%
+  scroll_box(width = "900px")
+```
 
 # Anàlisi de les dades
  
@@ -60,3 +176,5 @@ kbl(head(data), booktabs = TRUE) %>%
 ## Mètode no supervisat
 
 # Conclusions
+
+* Som uns cracks :)
