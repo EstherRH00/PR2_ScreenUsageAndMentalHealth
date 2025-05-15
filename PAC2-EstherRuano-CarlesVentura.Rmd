@@ -1,0 +1,62 @@
+---
+title: "Tipologia i cicle de vida de les dades"
+subtitle: "Pràctica 2"
+author: "Esther Ruano, Carles Ventura"
+date: "2025-05"
+output:
+  html_document:
+    toc: yes
+  pdf_document:
+    toc: 
+toc-title: "Índex"
+---
+
+# Introducció
+
+**TODO**; tractar que:
+
+1. Triem [aquest dataset](https://www.kaggle.com/datasets/waqi786/mental-health-and-technology-usage-dataset) i els motius pels quals ens sembla interessant (justificació personal)
+2. Per què les dades del dataset ens semblen riques i interessants
+3. Com tractarem les columnes de `Mental_health_status` (categòrica) i `Sleep_hours` (numèrica) com a variables objectiu en el nostre anàlisi.
+4. Importem les llibreries que farem servir.
+
+
+```{r install}
+# Instal·lacio de paquets
+# install.packages("dplyr")
+# install.packages("VIM")
+# install.packages("corrplot")
+# install.packages("kableExtra")
+## Carregar les llibreries
+library(dplyr)
+library(VIM)
+library(corrplot)
+library(kableExtra)
+```
+
+# Càrrega de les dades
+
+Per tal de carregar les dades hem descarregat l'arxiu `csv` de [aquest dataset](https://www.kaggle.com/datasets/waqi786/mental-health-and-technology-usage-dataset) i l'hem desat a la carpeta `/data`. Si inspeccionem l'arxiu veiem que la primera fila correspon als noms de les columnes i que el separador usat és ",". Per llegir les dades fem servir la funció [`read.csv`](https://www.rdocumentation.org/packages/COVID19/versions/2.0.3/topics/read.csv) i indiquem que volem prendre la primera fila com a headers i també marquem `stringsAsFactors = FALSE`: no s'aconsella convertir les cadenes a factors, ja que en dificulta el tractament posterior i pot generar errors [[font](https://blog.r-project.org/2020/02/16/stringsasfactors/)]. Seguidament, en mostrem les primeres línies amb la funció `head()` per fer-ne una primera avaluació.
+
+Per tal de mostrar la taula, darem servir la llibreria [kableExtra](https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html#Overview). 
+
+```{r chunk01}
+data <- read.csv("data/mental_health_and_technology_usage_2024.csv", stringsAsFactors = FALSE, sep = ",")
+
+kbl(head(data), booktabs = TRUE) %>%
+  kable_styling(latex_options = c("scale_down")) %>%
+  scroll_box(width = "900px")
+```
+
+
+## Anàlisi explorativa de les dades
+
+## Neteja de les dades
+
+# Anàlisi de les dades
+ 
+## Mètode supervisat
+
+## Mètode no supervisat
+
+# Conclusions
