@@ -1,0 +1,183 @@
+---
+title: "Tipologia i cicle de vida de les dades"
+subtitle: "Pràctica 2"
+author: "Esther Ruano, Carles Ventura"
+date: "2025-05"
+output:
+  html_document:
+    toc: yes
+  pdf_document:
+    toc: 
+toc-title: "Índex"
+---
+
+```{r setup, include=FALSE}
+# Configuració inicial
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+
+# Llibreries
+library(tidyverse)
+library(caret)
+library(randomForest)
+library(ggplot2)
+library(patchwork)
+```
+
+## 1. Carregar i preparar les dades
+
+```{r}
+# Carregar dades
+df <- read.csv("data/student_depression_dataset.csv")
+
+# Normalitzar noms de columnes
+colnames(df) <- make.names(colnames(df))
+
+# Eliminar columna ID
+df <- df %>% select(-id)
+
+# Convertir la variable resposta a factor
+df$Depression <- as.factor(df$Depression)
+
+# Variables quantitatives
+df <- df %>%
+  mutate(
+    Age = as.numeric(Age),
+    CGPA = as.numeric(CGPA),
+    Work.Study.Hours = as.numeric(Work.Study.Hours)
+  )
+
+# Variables qualitatives
+df <- df %>%
+  mutate(
+    Academic.Pressure = as.factor(Academic.Pressure),
+    Job.Satisfaction = as.factor(Job.Satisfaction),
+    Study.Satisfaction = as.factor(Study.Satisfaction),
+    Work.Pressure = as.factor(Work.Pressure),
+    City = as.factor(City),
+    Degree = as.factor(Degree),
+    Gender = as.factor(Gender),
+    Profession = as.factor(Profession),
+    Sleep.Duration = as.factor(Sleep.Duration),
+    Dietary.Habits = as.factor(Dietary.Habits),
+    Have.you.ever.had.suicidal.thoughts.. = as.factor(Have.you.ever.had.suicidal.thoughts..),
+    Financial.Stress = as.factor(Financial.Stress),
+    Family.History.of.Mental.Illness = as.factor(Family.History.of.Mental.Illness)
+  )
+```
+
+## 2. Anàlisi explorativa de les variables quantitatives
+
+```{r}
+# Selecció
+numeric_vars <- df %>% select(where(is.numeric))
+
+# Histogrames
+numeric_vars %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Valor") %>%
+  ggplot(aes(x = Valor)) +
+  facet_wrap(~ Variable, scales = "free", ncol = 4) +
+  geom_histogram(bins = 10, fill = "steelblue", color = "white") +
+  theme_minimal() +
+  labs(title = "Distribució de variables quantitatives")
+
+# Boxplots
+numeric_vars %>%
+  pivot_longer(cols = everything(), names_to = "Variable", values_to = "Valor") %>%
+  ggplot(aes(x = Variable, y = Valor)) +
+  geom_boxplot(fill = "lightblue") +
+  theme_minimal() +
+  coord_flip() +
+  labs(title = "Boxplots de les variables quantitatives")
+
+```
+
+## 3. Anàlisi explorativa de les variables qualitatives
+
+```{r, fig.width=14, fig.height=50}
+# Selecció de variables qualitatives
+categorical_vars <- df %>% select(where(is.factor)) %>% select(-Depression)
+
+# Crear gràfics separats
+plot_city <- ggplot(df, aes(x = City)) +
+  geom_bar(fill = "darkorange") +
+  ggtitle("Distribució de City") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+plot_degree <- ggplot(df, aes(x = Degree)) +
+  geom_bar(fill = "darkorange") +
+  ggtitle("Distribució de Degree") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))
+
+# Altres variables qualitatives
+other_vars <- setdiff(names(categorical_vars), c("City", "Degree"))
+
+plots_others <- lapply(other_vars, function(var) {
+  ggplot(df, aes_string(x = var)) +
+    geom_bar(fill = "darkorange") +
+    ggtitle(paste("Distribució de", var)) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1),
+          plot.title = element_text(size = 10))
+})
+
+# Combinar en layout: City i Degree en files separades, la resta 3 per fila
+final_plot <- (plot_city / plot_degree) / wrap_plots(plots_others, ncol = 3)
+
+print(final_plot)
+
+```
+
+## 4. Partició Train/Test
+
+```{r}
+set.seed(123)
+train_index <- createDataPartition(df$Depression, p = 0.8, list = FALSE)
+df_train <- df[train_index, ]
+df_test <- df[-train_index, ]
+
+```
+
+## 5. Preprocessament i entrenament del model Random Forest
+
+```{r}
+# Eliminar variables City i Degree
+df_train_rf <- df_train %>% select(-City, -Degree)
+df_test_rf <- df_test %>% select(-City, -Degree)
+
+# Convertir columnes de tipus factor amb mateixos nivells
+char_vars <- names(df_train_rf)[sapply(df_train_rf, is.factor)]
+
+for (var in char_vars) {
+  levels_comb <- union(levels(df_train_rf[[var]]), levels(df_test_rf[[var]]))
+  df_train_rf[[var]] <- factor(df_train_rf[[var]], levels = levels_comb)
+  df_test_rf[[var]]  <- factor(df_test_rf[[var]],  levels = levels_comb)
+}
+
+# Entrenar model
+set.seed(123)
+rf_model <- randomForest(Depression ~ ., data = df_train_rf, ntree = 100, importance = TRUE)
+print(rf_model)
+
+```
+
+## 6. Importància de les variables
+
+```{r}
+# Visualitzar la importància de les variables
+varImpPlot(rf_model)
+```
+
+## 7. Avaluació del model
+
+```{r}
+# Prediccions sobre la mostra de test
+pred_rf <- predict(rf_model, newdata = df_test_rf)
+
+# Matriu de confusió per veure el rendiment
+confusionMatrix(pred_rf, df_test_rf$Depression)
+```
+
+
+```{r}
+# Mostrar files on City conté la paraula "less" (He vist que hi han alguns errors)
+df %>% filter(str_detect(City, regex("less", ignore_case = TRUE)))
+```
