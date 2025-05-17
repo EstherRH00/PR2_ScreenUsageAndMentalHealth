@@ -21,6 +21,9 @@ library(caret)
 library(randomForest)
 library(ggplot2)
 library(patchwork)
+library(dplyr)
+library(cluster)
+library(factoextra)
 ```
 
 ## 1. Carregar i preparar les dades
@@ -181,3 +184,193 @@ confusionMatrix(pred_rf, df_test_rf$Depression)
 # Mostrar files on City conté la paraula "less" (He vist que hi han alguns errors)
 df %>% filter(str_detect(City, regex("less", ignore_case = TRUE)))
 ```
+
+## 8. Model no supervisat: clustering d'estudiants
+
+### 8.1 Selecció de variables rellevants
+
+```{r}
+# Torno a carregar el dataset per estar 100% segur que no està contaminat
+df <- read.csv("data/student_depression_dataset.csv")
+# Normalitzar noms de columnes
+colnames(df) <- make.names(colnames(df))
+
+# Eliminar columna ID
+df <- df %>% select(-id)
+
+# Eliminar files on Degree és "'Class 12'" (Pot ser un error....)
+df <- df %>% filter(Degree != "'Class 12'")
+
+# Crear df_cluster amb les columnes seleccionades
+df_cluster <- df %>%
+  select(Gender, Age, Degree, Profession,
+         Academic.Pressure, Work.Pressure,
+         CGPA, Study.Satisfaction, Job.Satisfaction,
+         Sleep.Duration, Dietary.Habits,
+         Have.you.ever.had.suicidal.thoughts..,
+         Work.Study.Hours, Financial.Stress,
+         Family.History.of.Mental.Illness)
+
+```
+
+### 8.2 Codificació i escalat de dades
+
+```{r}
+# Separem les qualitatives i quantitatives
+qual_cols <- c("Gender", "Profession", "Academic.Pressure", "Work.Pressure",
+               "Study.Satisfaction", "Job.Satisfaction", "Dietary.Habits",
+               "Have.you.ever.had.suicidal.thoughts..", "Financial.Stress",
+               "Family.History.of.Mental.Illness", "Sleep.Duration")
+num_cols <- c("Age", "CGPA", "Work.Study.Hours")
+
+# Dummy només per a qualitatives
+dummies <- dummyVars(" ~ .", data = df_cluster[, qual_cols])
+df_dummies <- predict(dummies, newdata = df_cluster[, qual_cols]) %>% as.data.frame()
+
+# Combinar les columnes numèriques amb les dummies
+df_numeric <- df_cluster[, num_cols]
+df_combined <- bind_cols(df_numeric, df_dummies)
+
+# Normalitzar les columnes numèriques dins del dataframe combinat
+df_scaled <- df_combined
+df_scaled[, num_cols] <- scale(df_combined[, num_cols])
+```
+
+### 8.3 Mètode del colze per determinar k
+
+```{r}
+set.seed(321)
+wss <- map_dbl(1:10, function(k) {
+  kmeans(df_scaled, centers = k, nstart = 10)$tot.withinss
+})
+
+plot(1:10, wss, type = "b", pch = 19,
+     xlab = "Nombre de clústers (k)",
+     ylab = "Total Within Sum of Squares",
+     main = "Mètode del colze")
+```
+
+### 8.4 Aplicació de k-means amb k = 4
+
+```{r}
+set.seed(123)
+kmeans_model <- kmeans(df_scaled, centers = 4, nstart = 25)
+df$cluster <- as.factor(kmeans_model$cluster)
+```
+
+### 8.5 Valors mitjans de les variables quantitatives de cada clúster
+
+```{r}
+df %>%
+  group_by(cluster) %>%
+  summarise(
+    Age_mean = mean(Age, na.rm = TRUE),
+    CGPA_mean = mean(CGPA, na.rm = TRUE),
+    WorkStudy_mean = mean(Work.Study.Hours, na.rm = TRUE),
+    n = n()
+  )
+```
+
+### 8.6 Distribucions de variables qualitatives
+
+```{r echo = FALSE}
+
+# Depression
+df %>%
+  group_by(cluster, Depression) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  group_by(cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = Depression, y = prop, fill = Depression)) +
+  geom_col() +
+  facet_wrap(~ cluster) +
+  theme_minimal() +
+  labs(title = "Distribució de Depression per clúster")
+
+# Pensaments suïcides
+df %>%
+  group_by(cluster, Have.you.ever.had.suicidal.thoughts..) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  group_by(cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = Have.you.ever.had.suicidal.thoughts.., y = prop, fill = Have.you.ever.had.suicidal.thoughts..)) +
+  geom_col() +
+  facet_wrap(~ cluster) +
+  theme_minimal() +
+  labs(title = "Pensaments suïcides per clúster")
+
+# Academic Pressure
+df %>%
+  group_by(cluster, Academic.Pressure) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  group_by(cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = Academic.Pressure, y = prop, fill = Academic.Pressure)) +
+  geom_col() +
+  facet_wrap(~ cluster) +
+  theme_minimal() +
+  labs(title = "Distribució de Academic Pressure per clúster")
+
+# Financial Stress
+df %>%
+  group_by(cluster, Financial.Stress) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  group_by(cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = Financial.Stress, y = prop, fill = Financial.Stress)) +
+  geom_col() +
+  facet_wrap(~ cluster) +
+  theme_minimal() +
+  labs(title = "Distribució de Financial Stress per clúster")
+
+# Family History of Mental Illness
+df %>%
+  group_by(cluster, Family.History.of.Mental.Illness) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  group_by(cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = Family.History.of.Mental.Illness, y = prop, fill = Family.History.of.Mental.Illness)) +
+  geom_col() +
+  facet_wrap(~ cluster) +
+  theme_minimal() +
+  labs(title = "Distribució de Family History of Mental Illness per clúster")
+
+# Sleep Duration
+df %>%
+  group_by(cluster, Sleep.Duration) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  group_by(cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = Sleep.Duration, y = prop, fill = Sleep.Duration)) +
+  geom_col() +
+  facet_wrap(~ cluster) +
+  theme_minimal() +
+  labs(title = "Distribució de Sleep Duration per clúster")
+
+# Hàbits alimentaris
+df %>%
+  group_by(cluster, Dietary.Habits) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  group_by(cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = Dietary.Habits, y = prop, fill = Dietary.Habits)) +
+  geom_col() +
+  facet_wrap(~ cluster) +
+  theme_minimal() +
+  labs(title = "Distribució dels hàbits alimentaris per clúster")
+
+# Degree
+df %>%
+  group_by(cluster, Degree) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  group_by(cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = Degree, y = prop, fill = Degree)) +
+  geom_col() +
+  facet_wrap(~ cluster) +
+  theme_minimal() +
+  labs(title = "Distribució de Degree per clúster")
+
+
+```
+
