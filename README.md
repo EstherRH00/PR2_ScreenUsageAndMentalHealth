@@ -74,10 +74,10 @@ El fitxer `student_depression_dataset.csv` ha de contenir columnes com:
 - `CGPA`
 - `Depression`
 - `Academic Pressure`
-- `Sleep Quality`
-- `Relationship Problem`
-- `Family History`
-- `Financial Problem`
+- `Sleep Duration`
+- `Have you ever had suicidal thoughts ?`
+- `Financial Stress`
+- `Work/Study Hours`
 - ... entre altres.
 
 ## Resultats destacats
