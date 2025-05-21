@@ -13,250 +13,632 @@ toc-title: "Índex"
 
 # Introducció
 
-**TODO**; tractar que:
+Aquesta és la segona pràctica per equips de l'assignatura de Tipologia i cicle de vida de les dades. En aquesta pràctica prendrem un conjunt de dades i les estudiarem: en primer lloc, haurem d'analitzar la seva estructura i entendre quina forma tenen les dades, seguidament, triarem una variable objectiu i intentarem predir-la amb un sistema d'aprenentatge supervisat. Finalment, triarem un sistema no supervisat per estudiar les dades. Amb això, haurem aconseguit estudiar les dades i presentarem els resultats en forma de gràfica. 
 
-1. Triem [aquest dfset](https://www.kaggle.com/dfsets/waqi786/mental-health-and-technology-usage-dfset) i els motius pels quals ens sembla interessant (justificació personal)
-2. Per què les dades del dfset ens semblen riques i interessants
-3. Com tractarem les columnes de `Mental_health_status` (categòrica) com a variables objectiu en el nostre anàlisi supervisat.
-4. Importem les llibreries que farem servir.
+Per realitzar aquesta pràctica, em triat un dataset de kaggle anomenat [Student Depression Dataset](https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset), que ens ha cridat l'atenció ja que conté informació sobre l'estat mental de més de vint-i-cinc mil estudiants. A més, aquest dataset conté columnes de tota mena: categòriques, numèriques, geogràfiques... i ens permetrà treballar amb molts escenaris diferents. Prendrem la variable booleana `Depression_Status` com a variable objectiu, i la intentarem predir amb el nostre model supervisat. Finalment, també aplicarem contrast d'hipòtesi per respondre a la nostra pregunta de recerca:
+
+> Pregunta de recerca aquí
+
+Abans de començar amb el codi, instal·lem i importem les llibreries que farem servir:
 
 
-```{r install}
+```{r setup}
 # Instal·lacio de paquets
-# install.packages("dplyr")
-# install.packages("VIM")
-# install.packages("corrplot")
-# install.packages("kableExtra")
+# install.packages("tidyverse")
+# install.packages("caret")
+# install.packages("randomForest")
 # install.packages("ggplot2")
+# install.packages("patchwork")
+# install.packages("dplyr")
+# install.packages("cluster")
+# install.packages("corrplot")
+# install.packages("factoextra")
+# install.packages("kableExtra")
 # install.packages("gridExtra")
 # install.packages("mltools")
 # install.packages("data.table")
-# install.packages("caret")
-# install.packages("randomForest")
+
 ## Carregar les llibreries
-library(dplyr)
-# library(VIM)
-# library(corrplot)
-library(kableExtra)
+library(tidyverse)
+library(caret)
+library(corrplot)
+library(randomForest)
 library(ggplot2)
+library(patchwork)
+library(dplyr)
+library(cluster)
+library(factoextra)
+library(kableExtra)
 library(gridExtra)
 library(mltools)
 library(data.table)
-library(caret)
-library(randomForest)
 ```
 
-# Càrrega de les dades
+# 1. Carregar i preparar les dades
 
-Per tal de carregar les dades hem descarregat l'arxiu `csv` de [aquest dfset](https://www.kaggle.com/dfsets/waqi786/mental-health-and-technology-usage-dfset) i l'hem desat a la carpeta `/df`. Si inspeccionem l'arxiu veiem que la primera fila correspon als noms de les columnes i que el separador usat és ",". Per llegir les dades fem servir la funció [`read.csv`](https://www.rdocumentation.org/packages/COVID19/versions/2.0.3/topics/read.csv) i indiquem que volem prendre la primera fila com a headers i també marquem `stringsAsFactors = FALSE`: no s'aconsella convertir les cadenes a factors, ja que en dificulta el tractament posterior i pot generar errors [[font](https://blog.r-project.org/2020/02/16/stringsasfactors/)]. Seguidament, en mostrem les primeres línies amb la funció `head()` per fer-ne una primera avaluació.
+Per tal de carregar les dades hem descarregat l'arxiu `csv` del [dataset triat](https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset) i l'hem desat a la carpeta `/data`. Si inspeccionem l'arxiu veiem que la primera fila correspon als noms de les columnes i que el separador usat és ",". Per llegir les dades fem servir la funció [`read.csv`](https://www.rdocumentation.org/packages/COVID19/versions/2.0.3/topics/read.csv) i indiquem que volem prendre la primera fila com a headers i també marquem `stringsAsFactors = FALSE`: no s'aconsella convertir les cadenes a factors, ja que en dificulta el tractament posterior i pot generar errors [[font](https://blog.r-project.org/2020/02/16/stringsasfactors/)]. Seguidament, en mostrem les primeres línies amb la funció `head()` per fer-ne una primera avaluació.
 
 Per tal de mostrar la taula, darem servir la llibreria [kableExtra](https://cran.r-project.org/web/packages/kableExtra/vignettes/awesome_table_in_html.html#Overview). 
 
-```{r chunk01}
-df <- read.csv("data/mental_health_and_technology_usage_2024.csv", stringsAsFactors = FALSE, sep = ",")
+```{r}
+df <- read.csv("data/student_depression_dataset.csv", stringsAsFactors = FALSE, sep = ",")
 
-print(paste("Mida del dfset: ", nrow(df), " files i ", ncol(df), " columnes."))
+print(paste("Mida del dataset: ", nrow(df), " files i ", ncol(df), " columnes."))
 
 kbl(head(df), booktabs = TRUE) %>%
   kable_styling(latex_options = c("scale_down")) %>%
   scroll_box(width = "900px")
 ```
 
-## Anàlisi explorativa de les dades
 
-A continuació volem entendre com es distribueixen les dades i si tenen alguna anomalia. Comencem investigant com son aquestes dades i identificant els rangs de valors, els diferents valors en cada categoria i la quantitat de nuls que trobem. Això ho aconseguim mitjançant les funcions [`summary`](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/summary), [`is.na`](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/NA) i [`unique`](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/unique). Per mostrar-los, de nou, fem servir kableExtra. A més, creem una llista amb les columnes numèriques i una altra amb les categòriques, que ens serà útil més endavant, sense incloure l'id dels usuaris.
+# 2. Anàlisi explorativa de les dades
 
-```{r chunk02}
-categorical_df <-c("Gender", "Mental_Health_Status", "Stress_Level", "Support_Systems_Access", "Work_Environment_Impact", "Online_Support_Usage")
-numerical_df <- c("Age", "Technology_Usage_Hours", "Social_Media_Usage_Hours", "Gaming_Hours",
-                    "Screen_Time_Hours", "Sleep_Hours", "Physical_Activity_Hours")
+A continuació volem entendre com es distribueixen les dades i si tenen alguna anomalia. Comencem investigant com son aquestes dades i identificant els rangs de valors, els diferents valors en cada categoria i la quantitat de nuls que trobem. Això ho aconseguim mitjançant les funcions [`summary`](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/summary), [`is.na`](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/NA) i [`unique`](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/unique). Per mostrar-los, de nou, fem servir kableExtra. A més, creem una llista amb les columnes numèriques i una altra amb les categòriques, que ens serà útil més endavant, sense incloure l'id dels usuaris. És interessant destacar que `Sleep.Duration` són intervals i, per tant, es proporciona com a informació categòrica, amb 5 rangs possibles, com veurem a continuació. A més, `Financial.Stress` està sent interpretada com a caràcter:
 
+```{r}
+print(paste("Financial.Stress és de tipus: ", class(df[["Financial.Stress"]])))
+print(paste("Financial.Stress pren els valors: ", unique(df[["Financial.Stress"]])))
+```
 
-kbl(summary(df[, numerical_df]), booktabs = TRUE, caption="Resum de les dades") %>%
-  kable_styling(latex_options = c("scale_down")) %>%
-  scroll_box(width = "900px")
+Per tant, el transformem en numèric i deixarem els valors "?" com en `NA`.
 
+```{r}
+df$Financial.Stress[df$Financial.Stress == "?"] <- NA 
+df$Financial.Stress <- as.numeric(df$Financial.Stress)  
+```
+
+Observem que la variable `Depression` és numèrica; tot i això, representa una categoria booleana. Tanmateix, decidim deixar que sigui numèrica ja que en els models supervisats, podrem fer servir una regressió i després decidir la categoria comparant aquest valor amb 0.5.
+
+Seguidament, eliminem la columna d'`id` ja que no ens proporciona cap informació:
+
+``` {r}
+df <- df %>% select(-id)
+```
+
+Finalment, comprovem quantes columnes tenen valors nuls:
+
+```{r}
 kbl(t(colSums(is.na(df))), booktabs = TRUE, caption="Quantitat de dades buides") %>%
-  kable_styling(latex_options = c("scale_down")) %>%
-  scroll_box(width = "900px")
-
-
-cat_values <- sapply(df[, categorical_df], function(col) paste(unique(col), collapse = ", "))
-cat_df <- data.frame(Variable = names(cat_values), Unique_Values = unname(cat_values))
-
-kbl(cat_df, booktabs = TRUE, caption="Dades categòriques", colnames=categorical_df) %>%
   kable_styling(latex_options = c("scale_down")) %>%
   scroll_box(width = "900px")
 ```
 
-Trobem que no hi ha cap valor nul, cosa positiva. Pel que fa a les variables categòriques, `Support_Systems_Access` i `Online_Support_Usage` es poden transformar en booleans, però les altres tenen més de dues categories i, per tant, n'haurem de fer _one-hot_ encoding; potencialment utilitzant la funció [`one-hot`](https://www.rdocumentation.org/packages/mltools/versions/0.3.5/topics/one_hot) que proporciona R. Mirem les dades numèriques i trobem que les columnes d'hores d'úis de pantalles (`Technology_Usage_Hours`, `Social_Media_Usage_Hours`, `Gaming_Hours` i `Screen_Time_Hours`) es troben en rangs semblants; les mitjanes i medianes són semblants i les distancies entre quartils són semblants. Això ho veurem millor en els `boxplots` que farem a continuació. El mateix passa per les hores de son i d'exercici. 
+Veiem que hi ha només tres valors nuls, en la columna `Financial.Stress` cosa positiva; més endavant decidirem com fer-ne imputació. Ara, per analitzar la resta del dataset en detall; separem aquest apartat en dades qualitatives i quantitatives:
 
-A continuació mostrem `boxplots` i histogrames per les dades numèriques, així com gràfics de barres per a les categòriques, per entendre millor la seva distribució. Per aconseguir-ho, farem servir la llibreria `ggplot2`, que incorpora totes les gràfiques, i la llibreria `gridExtra`, que ens permet endreçar-les. Ajustem les mides amb `fig.height=20, fig.width=15` per tal que a l'html generat es vegin bé
+```{r}
+categorical_columns <-c("Gender", "City", "Profession", "Sleep.Duration", "Dietary.Habits", "Degree", "Have.you.ever.had.suicidal.thoughts..", "Family.History.of.Mental.Illness")
+numerical_columns <- c("Age", "Academic.Pressure", "Work.Pressure", "CGPA", "Study.Satisfaction", "Job.Satisfaction", "Work.Study.Hours", "Financial.Stress", "Depression")
+```
 
-```{r chunk03, fig.height=20, fig.width=15}
+# 2.1. Anàlisi explorativa de les dades quantitatives
+
+```{r}
+kbl(summary(df[, numerical_columns]), booktabs = TRUE, caption="Resum de les dades numèriques") %>%
+  kable_styling(latex_options = c("scale_down")) %>%
+  scroll_box(width = "900px")
+```
+
+Si mirem les variables numèriques, observem el següent:
+* Pel que fa a l'edat, sembla que hi ha un gran salt entre el tercer quartil i el màxim (vint-i-nou anys); així que segurament trobem alguns valors extrems (__outliars__) aquí. 
+* Les columnes que indiquen satisfacció prenen valors entre 0 i 5, i volem destacar com `Job.Satisfaction` té una mitja de 0.000681 i una mediana de 0, valors molt molt baixos. 
+* Els valors d'hores d'estudi i feina diàries són entre 0 i 12, amb un rang gran al primer quartil, però cap valor que sembli invàlid.
+
+A continuació mostrem `boxplots` i histogrames per les dades numèriques, per entendre millor la seva distribució. Per aconseguir-ho, farem servir la llibreria `ggplot2`, que incorpora totes les gràfiques, i la llibreria `gridExtra`, que ens permet endreçar-les. Ajustem les mides amb `fig.height=20, fig.width=15` per tal que a l'html generat es vegin bé
+
+
+```{r, fig.height=20, fig.width=15}
 histograms <- list()
 boxplots <- list()
 
-for (col in numerical_df) {
+for (col in numerical_columns) {
   
   # Histogram
   histograms[[length(histograms) + 1]] <-  ggplot(df, aes_string(x = col)) +
     geom_histogram(bins = 30, fill = "steelblue", color = "white") +
-    ggtitle(paste("Histogram of", col))
+    ggtitle(paste("Histograma de", col))
   
   # Boxplot
   boxplots[[length(boxplots) + 1]] <- ggplot(df, aes_string(y = col)) +
     geom_boxplot(fill = "tomato", outlier.colour = "red", outlier.shape = 16) +
-    ggtitle(paste("Boxplot of", col))
+    ggtitle(paste("Boxplot de", col))
 }
 
-do.call(grid.arrange, c(histograms, ncol = 2))
-do.call(grid.arrange, c(boxplots, ncol = 4))
+do.call(grid.arrange, c(histograms, ncol = 3))
+do.call(grid.arrange, c(boxplots, ncol = 3))
+```
 
+> TODO anàlisi dels boxplots i histogrames
+
+A més, podem estudiar la correlació entre les variables numèriques:
+
+```{r}
+cor_matrix <- cor(df[, numerical_columns], use = "complete.obs", method = "pearson")
+corrplot(cor_matrix, method = "color", type = "upper", tl.cex = 0.8)
+```
+
+> TODO comentar els resultats de la matriu de correlació
+
+# 2.3. Anàlisi explorativa de les dades qualitatives
+
+En primer lloc, volem explorar quins valors prenen les variables quantitatives:
+
+```{r}
+categorical_values <- sapply(df[, categorical_columns], function(col) paste(unique(col), collapse = ", "))
+categorical_df <- data.frame(Variable = names(categorical_values), Unique_Values = unname(categorical_values))
+
+kbl(categorical_df, booktabs = TRUE, caption="Dades categòriques", colnames=categorical_columns) %>%
+  kable_styling(latex_options = c("scale_down")) %>%
+  scroll_box(width = "900px")
+```
+
+Trobem que hi ha 5 rangs pel que fa a les hores de son, i quatre per als hàbits alimentaris; i ambdues categories contenen `Others` com a opció. En apartats següents discutirem si ho considerem opció no vàlida i la imputem, o si seguim endavant amb la categoria. El mateix passa amb `Degree`.
+
+Pel que fa a les variables categòriques, n'haurem de fer _one-hot_ encoding; potencialment utilitzant la funció [`one-hot`](https://www.rdocumentation.org/packages/mltools/versions/0.3.5/topics/one_hot) que proporciona R. Seguidament, mostrem amb `barplots` la distribució de cada una de les variables no-numèriques.
+
+```{r, fig.height=25, fig.width=15}
 barplots <- list()
 
-for (col in categorical_df) {
+for (col in categorical_columns) {
   # Barplot
   barplots[[length(barplots) + 1]] <- ggplot(df, aes_string(x = col)) +
           geom_bar(fill = "orange") +
-          ggtitle(paste("Bar plot of", col)) +
-          theme(axis.text.x = element_text(angle = 45, hjust = 1))
+          ggtitle(paste("Bar plot de", col)) +
+          theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+          coord_flip()
 }
 
-do.call(grid.arrange, c(barplots, ncol = 3))
+do.call(grid.arrange, c(barplots, ncol = 2))
 ```
 
+> TODO analitzar dades
 
-**TODO** More yapping pero que les dades estan super equilibrades, hi ha una mica d'outliars en les hores però res gaire boig. Per part de les categòriques tampoc hi ha cap biaix, tot està perfectament equilibrat com diria Thanos
+# 3. Neteja de les dades
 
-## Neteja de les dades
+En aquest apartat prestarem atenció a quines anomalies tenen les nostres dades i decidirem com gestionar-les
 
-### Imputació
+## 3.1 Imputació
 
-Com hem vist a l'apartat anterior, cap fila té un valor invàlid o nul; per tant, no cal realitzar cap mena d'imputació de dades.
+En els apartats anteriors hem vist les següents variables amb valors problemàtics:
 
-### Eliminar outliars
+* **`Financial.Stress`:** aquesta variable és numèrica i pren valor `NA` tres cops en les més de vint-i-set mil files que té el nostre dataset. 
 
-**TODO** això es pot discutir, però no veig cap neteja a fer llevat de one-hot encoding, no veig outliers per retallar >.<
+```{r}
+print(paste("Quantitat de files amb Financial.Stress = 'NA':", sum(is.na(df$Financial.Stress))))
+```
+
+En aquest cas, la variable `Financial.Stress` és numèrica i pren només valors enters; tenint en compte la petita quantitat de valors no vàlids la reemplaçem amb la mediana, ja que la mitjana pot ser decimal.
+
+```{r}
+df$Financial.Stress[is.na(df$Financial.Stress)] <- median(df$Financial.Stress, na.rm = TRUE)
+print(paste("Quantitat de files amb Financial.Stress = 'NA':", sum(is.na(df$Financial.Stress))))
+```
+* **`Sleep.Duration`:** aquesta variable és categòrica i pren valor `Others` divuit cops en les més de vint-i-set mil files que té el nostre dataset. 
+
+```{r}
+print(paste("Quantitat de files amb Sleep.Duration = 'Others':", sum(df$Sleep.Duration == "Others")))
+```
+
+Les opcions de la categoria `Sleep.Duration` són quatre intervals que cobreixen tota la recta real; per tant, el valor `Others` no té sentit. Decidim, en aquest cas, imputar-lo amb el valor més comú, ja que la dada no és quantitativa sinó qualitativa.
+
+```{r}
+most_common_sleep_duration <- names(which.max(table(df$Sleep.Duration)))
+df$Sleep.Duration[df$Sleep.Duration == "Others"] <- most_common_sleep_duration
+print(paste("Quantitat de files amb Sleep.Duration = 'Others':", sum(df$Sleep.Duration == "Others")))
+```
+* **`Dietary.Habits`:** aquesta variable és categòrica i pren valor `Others` dotze cops en les més de vint-i-set mil files que té el nostre dataset. 
+
+```{r}
+print(paste("Quantitat de files amb Dietary.Habits = 'Others':", sum(df$Dietary.Habits == "Others")))
+```
+
+Les opcions de la categoria `Dietary.Habits` són tres nivells segons com de saludables són; per tant, el valor `Others` no té sentit. Decidim, en aquest cas, imputar-lo amb el valor més comú, ja que la dada no és quantitativa sinó qualitativa.
+
+```{r}
+most_common_dietary_habits <- names(which.max(table(df$Dietary.Habits)))
+df$Dietary.Habits[df$Dietary.Habits == "Others"] <- most_common_dietary_habits
+print(paste("Quantitat de files amb Dietary.Habits = 'Others':", sum(df$Dietary.Habits == "Others")))
+```
+* **`Degree`:** aquesta variable és categòrica i pren valor `Others` trenta-cinc cops en les més de vint-i-set mil files que té el nostre dataset. 
+
+```{r}
+print(paste("Quantitat de files amb Degree = 'Others':", sum(df$Degree == "Others")))
+```
+
+En aquest cas, però, tot i que la llista d'opcions educatives proporcionades és prou exhaustiva, pot haver-hi usuaris que no encaixin en cap categoria i, per tant, considerem que el valor `Others` és vàlid en aquest context i no realitzem imputació.
 
 
-**TODO** si volem eliminar fent servir el mètode del rang interquartílic, aquest és el codi
+## 3.2 Eliminar outliars
+
+Utilitzant els boxplots per avaluar les variables numèriques, trobem que l'edat (`Age`) i nota mitjana `CGPA` tenen outliars molt marcats; per tant, els eliminarem fent servir la tècnica del [rang interquartílic](https://es.wikipedia.org/wiki/Rango_intercuart%C3%ADlico).
 
 ```{r outlier-removal}
-"
-for (col in names(df)[num_cols]) {
+for (col in c("Age", "CGPA")) {
   Q1 <- quantile(df[[col]], 0.25, na.rm = TRUE)
   Q3 <- quantile(df[[col]], 0.75, na.rm = TRUE)
   IQR <- Q3 - Q1
   lower_bound <- Q1 - 1.5 * IQR
   upper_bound <- Q3 + 1.5 * IQR
   df <- df[df[[col]] >= lower_bound & df[[col]] <= upper_bound, ]
-}"
+}
 ```
 
-### Transformar variables categòriques
+Observem com la seva distribució ha canviat:
+
+```{r, fig.height=8, fig.width=15}
+histograms <- list()
+boxplots <- list()
+
+for (col in c("Age", "CGPA")) {
+  
+  # Histogram
+  histograms[[length(histograms) + 1]] <-  ggplot(df, aes_string(x = col)) +
+    geom_histogram(bins = 30, fill = "steelblue", color = "white") +
+    ggtitle(paste("Histograma de", col))
+  
+  # Boxplot
+  boxplots[[length(boxplots) + 1]] <- ggplot(df, aes_string(y = col)) +
+    geom_boxplot(fill = "tomato", outlier.colour = "red", outlier.shape = 16) +
+    ggtitle(paste("Boxplot de", col))
+}
+
+do.call(grid.arrange, c(histograms, ncol = 3))
+do.call(grid.arrange, c(boxplots, ncol = 3))
+```
+
+## 3.3 Transformar variables categòriques
 
 Per tal de treballar amb les variables categòriques, farem [one-hot encoding](https://es.wikipedia.org/wiki/One-hot), ja que és el més aconsellable per a entrenar models després. Farem servir el mètode [`one_hot`](https://www.rdocumentation.org/packages/mltools/versions/0.3.5/topics/one_hot) de la llibreria `mltools`. Consultem la documentació per veure que primer cal transformar-la en una `df.table` i, després, podem aplicar el mètode i mostrar les primeres files del dataset.
 
-```{r chunk04}
+```{r}
+df <- as.data.table(df)
 
-df_dt <- as.data.table(df)
-
-for (col in categorical_df) {
-  df_dt[[col]] <- as.factor(df_dt[[col]])
+for (col in categorical_columns) {
+  df[[col]] <- as.factor(df[[col]])
 }
 
-df_encoded <- one_hot(df_dt, cols = categorical_df)
+df_encoded <- one_hot(df, cols = categorical_columns)
 
 kbl(head(df_encoded), booktabs = TRUE) %>%
   kable_styling(latex_options = c("scale_down")) %>%
   scroll_box(width = "900px")
 ```
 
-# Anàlisi de les dades
- 
-## Mètode supervisat
+Comprovem que s'han codificat correctament
 
-**TODO** More yapping.
+# 4. Anàlisi de dades
 
-Triem [Random Forest](https://en.wikipedia.org/wiki/Random_forest). (
-Handles nonlinear relationships
+## 4.1 Model supervisat
 
-Works well with mixed data types (numerical + one-hot categorical)
+En aquest apartat intentarem predir la columna `Depression`, que és categòrica, però només pren els valors 0 i 1. Ho farem de dues maneres:
 
-Naturally supports multi-class problems
+* Per una banda, com que la columna és numèrica, aplicarem una regressió lineal, ja que la matriu de correlació indica que hi ha algunes variables, com ara la pressió acadèmica, tenen una forta relació lineal amb la variable objectiu. La regressió predirà un valor que nosaltres compararem amb 0.5; si és major, triarem "1" com a valor predit i, en cas contrari, triarem "0".
 
-Has built-in feature importance
+* Per altra banda, farem servir un Random Forest, que és un model supervisat molt comú per a variables categòriques que combina diversos arbres de decisió per predir les variables objectiu.
 
-Robust to outliers and missing values
+### 4.1.1 Partició Train/Test
 
-Requires minimal tuning to perform reasonably well
-)
+El primer pas és separar el conjunt de dades entre les que farem servir per entrenar i les que usarem per avaluar; això ho farem utilitzant [createDataPartition](https://www.rdocumentation.org/packages/caret/versions/7.0-1/topics/createDataPartition). Triem el paràmetre `p = 0.8` de manera que farem servir un 80% de les dades per entrenar, i la resta per l'avaluació. A més, per tal que els nostres resultats siguin reproduibles, fixem la `seed` a 100, i mostrem les mides dels datasets resultants.
 
-El primer pas és separar la variable objectiu, sobre la qual no volem aplicar el one-hot encoding. Després separem entre conjunt d'entrenament i conjunt de test utilitzant [createDataPartition](https://www.rdocumentation.org/packages/caret/versions/7.0-1/topics/createDataPartition). Triem la seed 100.
-
-Posar `as.factor` fa que sigui categoric i que l'arbre funcioni més endavant
-
-```{r chunk05}
-
-X = copy(df_encoded)
-X = X[, c("Mental_Health_Status_Excellent", "Mental_Health_Status_Fair", 
-                    "Mental_Health_Status_Good", "Mental_Health_Status_Poor") := NULL]
-X$Mental_Health_Status <- as.factor(df$Mental_Health_Status)
-X = as.data.table(X)
-
+```{r}
 set.seed(100)
 
-train_index <- createDataPartition(X$Mental_Health_Status, p = 0.8, list = FALSE)
+train_index <- createDataPartition(df_encoded$Depression, p = 0.8, list = FALSE)
 
-train <- X[train_index, ]
-test <- X[-train_index, ]
+df_train <- df_encoded[train_index, ]
+df_test <- df_encoded[-train_index, ]
 
-print(paste("Mida del dataset d'entrenament: ", nrow(train), " files i ", ncol(train), " columnes."))
-print(paste("Mida del dataset de test: ", nrow(test), " files i ", ncol(test), " columnes."))
+print(paste("Mida del conjunt d'entrenament: ", nrow(df_train), " files i ", ncol(df_train), " columnes."))
+print(paste("Mida del conjunt de test: ", nrow(df_test), " files i ", ncol(df_test), " columnes."))
+```
+Comprovem que s'han separat com esperàvem.
 
-kbl(head(train), booktabs = TRUE) %>%
+### 4.1.2 Regressió lineal
+
+Com hem explicat, farem servir regressió lineal per predir la columna `Depression` i després discretitzarem el resultat per tal que encaixi en una de les categories. Per fer-ho, fem servir la funció [`lm`](https://www.rdocumentation.org/packages/stats/versions/3.6.2/topics/lm) d'R.
+
+```{R}
+lm_model <- lm(Depression ~ ., data = df_train)
+pred_lm <- predict(lm_model, newdata = df_test)
+pred_lm_class <- ifelse(pred_lm < 0.5, 0, 1)
+```
+
+Ara, compararem aquestes prediccions amb els valors reals; farem servir dues mesures: accuracy i una matriu de confusió. És important tenir en compte que en el conjunt de dades hi ha cinc-mil casos més de depressió que de no depressió, aproximadament; per tant, és probable que el nostre model es decanti a predir sí. Si veiem que això passa, podrem considerar fer servir alguna altra mesura com ara F1 o el [ràtio de falsos positius](https://en.wikipedia.org/wiki/False_positive_rate) per tal que s'adapti millor. També podriem considerar estratègies de sampling per fer la mostra més homogènia. En primer lloc, però, cal avaluar aquests resultats; ho farem fent servir la funció [`confusionMatrix`](https://rdrr.io/cran/caret/man/confusionMatrix.html) de la llibreria `caret`:
+
+``` {r}
+confusionMatrix(as.factor(pred_lm_class), as.factor(df_test$Depression))
+```
+Observem una accuracy de 0.84, prou bona, i la matriu de confusió ens indica que la quantitat de falsos positius és prou superior a la de falsos negatius; és a dir, el nostre model tendeix a predir "Depression=1" més del que seria ideal. Això ho podem intentar ajustar amb mètodes de sampling o canviant la mesura per la qual optimitzem.
+
+> TODO
+
+### 4.1.3 Random Forest
+
+Ara, farem la predicció amb un [Random Forest](https://en.wikipedia.org/wiki/Random_forest), que ens permetrà veure relacions no lineals, ja que combina diferents arbres de precisió i, a més, sol donar bons resultats en dades mixtes com les que tenim. Farem servir la funció [`randomForest`](https://www.rdocumentation.org/packages/randomForest/versions/4.7-1.2/topics/randomForest) que ens proporciona R i ho avaluem de nou amb una matriu de confusió. Aprofitem per passar-li el paràmetre `importance = TRUE` i així poder entendre els resultats. També limitem el valor de `ntree` per sota del que pren per defecte (500) per tal d'agilitzar l'execució del codi. 
+
+Ens adonem aque algunes columnes tenen caràcters problemàtics per al nostre arbre; així que canviem els seus noms utlilitzant [`make.names`](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/make.names). A més, com que volem que l'arbre faci classificació i no predicció, hem de canviar la variable `Depression` a categòrica.
+
+
+```{r}
+colnames(df_train) <- make.names(colnames(df_train))
+colnames(df_test)  <- make.names(colnames(df_test))
+df_train$Depression <- as.factor(df_train$Depression)
+df_test$Depression  <- as.factor(df_test$Depression)
+```
+
+Un cop preparat, entrenem el model i fem les prediccions.
+
+```{r}
+model_rf <- randomForest(Depression ~ ., data = df_train, ntree = 200, importance = TRUE)
+pred_rf <- predict(model_rf, newdata = df_test)
+```
+
+Com que hem posat el paràmetre `importance = TRUE`, podem veure la importància de cada variable a més d'avaluar els resultats amb la nostra matriu de confusió.
+
+```{r}
+kbl(importance(model_rf), booktabs = TRUE) %>%
   kable_styling(latex_options = c("scale_down")) %>%
   scroll_box(width = "900px")
+
+confusionMatrix(pred_rf, df_test$Depression)
 ```
-Blablabla el model
 
-```{r chunk06}
-model_rf <- randomForest(Mental_Health_Status ~ ., data = train, ntree = 200, importance = TRUE)
+> TODO comentar resultats
 
+## 4.2. Model no supervisat: clustering d'estudiants
 
-preds <- predict(model_rf, newdata = test)
-conf_mat <- confusionMatrix(preds, test$Mental_Health_Status)
-print(conf_mat)
+### 4.2.1 Selecció de variables rellevants
+
+```{r}
+# Torno a carregar el dataset per estar 100% segur que no està contaminat
+df <- read.csv("data/student_depression_dataset.csv")
+# Normalitzar noms de columnes
+colnames(df) <- make.names(colnames(df))
+
+# Eliminar columna ID
+df <- df %>% select(-id)
+
+# Eliminar files on Degree és "'Class 12'" (Pot ser un error....)
+df <- df %>% filter(Degree != "'Class 12'")
+
+# Crear df_cluster amb les columnes seleccionades
+df_cluster <- df %>%
+  select(Gender, Age, Degree, Profession,
+         Academic.Pressure, Work.Pressure,
+         CGPA, Study.Satisfaction, Job.Satisfaction,
+         Sleep.Duration, Dietary.Habits,
+         Have.you.ever.had.suicidal.thoughts..,
+         Work.Study.Hours, Financial.Stress,
+         Family.History.of.Mental.Illness)
+
 ```
-**TODO** Redactar millor
 
-Slightly better than random guessing (No Information Rate = 0.2518), but not by much.
+### 4.2.2 Codificació i escalat de dades
+```{r}
+# Separem les qualitatives i quantitatives
+qual_cols <- c("Gender", "Profession", "Academic.Pressure", "Work.Pressure",
+               "Study.Satisfaction", "Job.Satisfaction", "Dietary.Habits",
+               "Have.you.ever.had.suicidal.thoughts..", "Financial.Stress",
+               "Family.History.of.Mental.Illness", "Sleep.Duration")
+num_cols <- c("Age", "CGPA", "Work.Study.Hours")
 
-P-Value = 0.05866 means the model is not statistically significantly better than guessing at a 5% confidence level.
-Kappa accounts for agreement due to chance.
+# Dummy només per a qualitatives
+dummies <- dummyVars(" ~ .", data = df_cluster[, qual_cols])
+df_dummies <- predict(dummies, newdata = df_cluster[, qual_cols]) %>% as.data.frame()
 
-Values near 0 = almost no predictive power beyond chance.
+# Combinar les columnes numèriques amb les dummies
+df_numeric <- df_cluster[, num_cols]
+df_combined <- bind_cols(df_numeric, df_dummies)
 
-Rule of thumb:
+# Normalitzar les columnes numèriques dins del dataframe combinat
+df_scaled <- df_combined
+df_scaled[, num_cols] <- scale(df_combined[, num_cols])
+```
 
-    > 0.6: good
+### 4.2.3 Mètode del colze per determinar k
 
-    0.4–0.6: moderate
+```{r}
+set.seed(321)
+wss <- map_dbl(1:10, function(k) {
+  kmeans(df_scaled, centers = k, nstart = 10)$tot.withinss
+})
 
-    0.2–0.4: fair
+plot(1:10, wss, type = "b", pch = 19,
+     xlab = "Nombre de clústers (k)",
+     ylab = "Total Within Sum of Squares",
+     main = "Mètode del colze")
+```
 
-    < 0.2: poor
+### 4.2.4 Aplicació de k-means amb k = 4
 
-So: this model is performing very poorly
-All sensitivities are low: the model is struggling to correctly identify any class.
+```{r}
+set.seed(123)
+kmeans_model <- kmeans(df_scaled, centers = 4, nstart = 25)
+df$cluster <- as.factor(kmeans_model$cluster)
+```
 
-Balanced accuracy hovers around 50% — again, barely better than flipping a coin.
+### 4.2.5 Valors mitjans de les variables quantitatives de cada clúster
 
-probablement unsupervised learning funcioni millor
+```{r}
+df %>%
+  group_by(cluster) %>%
+  summarise(
+    Age_mean = mean(Age, na.rm = TRUE),
+    CGPA_mean = mean(CGPA, na.rm = TRUE),
+    WorkStudy_mean = mean(Work.Study.Hours, na.rm = TRUE),
+    n = n()
+  )
+```
 
-## Mètode no supervisat
+### 4.2.6 Distribucions de variables qualitatives
 
-# Conclusions
+```{r echo = FALSE}
 
-* Som uns cracks :)
+# Depression
+df %>%
+  group_by(cluster, Depression) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  group_by(cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = Depression, y = prop, fill = Depression)) +
+  geom_col() +
+  facet_wrap(~ cluster) +
+  theme_minimal() +
+  labs(title = "Distribució de Depression per clúster")
+
+# Pensaments suïcides
+df %>%
+  group_by(cluster, Have.you.ever.had.suicidal.thoughts..) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  group_by(cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = Have.you.ever.had.suicidal.thoughts.., y = prop, fill = Have.you.ever.had.suicidal.thoughts..)) +
+  geom_col() +
+  facet_wrap(~ cluster) +
+  theme_minimal() +
+  labs(title = "Pensaments suïcides per clúster")
+
+# Academic Pressure
+df %>%
+  group_by(cluster, Academic.Pressure) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  group_by(cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = Academic.Pressure, y = prop, fill = Academic.Pressure)) +
+  geom_col() +
+  facet_wrap(~ cluster) +
+  theme_minimal() +
+  labs(title = "Distribució de Academic Pressure per clúster")
+
+# Financial Stress
+df %>%
+  group_by(cluster, Financial.Stress) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  group_by(cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = Financial.Stress, y = prop, fill = Financial.Stress)) +
+  geom_col() +
+  facet_wrap(~ cluster) +
+  theme_minimal() +
+  labs(title = "Distribució de Financial Stress per clúster")
+
+# Family History of Mental Illness
+df %>%
+  group_by(cluster, Family.History.of.Mental.Illness) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  group_by(cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = Family.History.of.Mental.Illness, y = prop, fill = Family.History.of.Mental.Illness)) +
+  geom_col() +
+  facet_wrap(~ cluster) +
+  theme_minimal() +
+  labs(title = "Distribució de Family History of Mental Illness per clúster")
+
+# Sleep Duration
+df %>%
+  group_by(cluster, Sleep.Duration) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  group_by(cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = Sleep.Duration, y = prop, fill = Sleep.Duration)) +
+  geom_col() +
+  facet_wrap(~ cluster) +
+  theme_minimal() +
+  labs(title = "Distribució de Sleep Duration per clúster")
+
+# Hàbits alimentaris
+df %>%
+  group_by(cluster, Dietary.Habits) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  group_by(cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = Dietary.Habits, y = prop, fill = Dietary.Habits)) +
+  geom_col() +
+  facet_wrap(~ cluster) +
+  theme_minimal() +
+  labs(title = "Distribució dels hàbits alimentaris per clúster")
+
+# Degree
+df %>%
+  group_by(cluster, Degree) %>%
+  summarise(n = n(), .groups = 'drop') %>%
+  group_by(cluster) %>%
+  mutate(prop = n / sum(n)) %>%
+  ggplot(aes(x = Degree, y = prop, fill = Degree)) +
+  geom_col() +
+  facet_wrap(~ cluster) +
+  theme_minimal() +
+  labs(title = "Distribució de Degree per clúster")
+
+
+```
+
+# 5 Contrast d'hipòtesis entre Gender i Depression
+
+## 5.1 Carrego el dataset i mostro la proporcio Dones/Homes amb o sense Depressió
+
+```{r }
+# Torno a carregar el dataset per estar 100% segur que no està contaminat
+df <- read.csv("data/student_depression_dataset.csv")
+# Normalitzar noms de columnes
+colnames(df) <- make.names(colnames(df))
+
+# Trobar les proporcions de Dones/Homes amb o sense Depressió
+df_prop <- df %>%
+  group_by(Gender, Depression) %>%
+  summarise(count = n()) %>%
+  mutate(prop = count / sum(count))  # proporció dins de cada gènere
+
+# Canvio els valors 0/1 per No/Sí
+df_prop$Depression <- factor(df_prop$Depression, labels = c("No", "Sí"))
+print(df_prop)
+
+# Mostro el gràfic amb les proporcions Dones/Homes amb o sense Depressió
+ggplot(df_prop, aes(x = Gender, y = prop, fill = Depression)) +
+  geom_bar(stat = "identity", position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  labs(title = "Proporció de depressió segons el gènere",
+       x = "Gènere",
+       y = "Proporció (%)",
+       fill = "Depressió") +
+  scale_fill_manual(values = c("darkseagreen3", "indianred2")) +
+  theme_minimal()
+```
+
+## 5.2 Contrast d'hipòtesis de dues proporcions 
+
+Per analitzar si hi ha una associació entre el gènere i la presència de depressió, plantegem el següent contrast d'hipòtesis:
+
+**Hipòtesi nul·la ($H_0$):**  
+No hi ha diferències en la proporció de persones amb depressió entre homes i dones.
+
+$$
+H_0 : p_{home} = p_{dona}
+$$
+
+**Hipòtesi alternativa ($H_1$):**  
+Hi ha una diferència significativa en la proporció de persones amb depressió entre homes i dones.
+
+$$
+H_1 : p_{home} \ne p_{dona}
+$$
+```{r }
+# Persones amb depressió per gènere
+depression_male <- sum(df$Gender == "Male" & df$Depression == 1)
+depression_female <- sum(df$Gender == "Female" & df$Depression == 1)
+
+# Total Homes/Dones
+total_male <- sum(df$Gender == "Male")
+total_female <- sum(df$Gender == "Female")
+
+# Contrast d'hipòtesis de proporcions
+test_resultat <- prop.test(
+  x = c(depression_male, depression_female),
+  n = c(total_male, total_female),
+  correct = FALSE,
+  conf.level = 0.95
+)
+
+print(test_resultat)
+```
+
+Com que el $p$-value obtingut (0.7644) és molt superior al llindar de significació ($\alpha = 0{,}05$), no es pot rebutjar la hipòtesi nul·la.
