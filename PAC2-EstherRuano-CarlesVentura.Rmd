@@ -17,41 +17,46 @@ Aquesta és la segona pràctica per equips de l'assignatura de Tipologia i cicle
 
 Per realitzar aquesta pràctica, em triat un dataset de kaggle anomenat [Student Depression Dataset](https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset), que ens ha cridat l'atenció ja que conté informació sobre l'estat mental de més de vint-i-cinc mil estudiants. A més, aquest dataset conté columnes de tota mena: categòriques, numèriques, geogràfiques... i ens permetrà treballar amb molts escenaris diferents. Prendrem la variable booleana `Depression_Status` com a variable objectiu, i la intentarem predir amb el nostre model supervisat. Finalment, també aplicarem contrast d'hipòtesi per respondre a la nostra pregunta de recerca:
 
-> Pregunta de recerca aquí
+> Depèn la distribució de la depressió del gènere?
+
+I la respondrem formulant la hipòtesi de que són iguals i aplicant contrast d'hipòtesis sobre:
+
+$$
+H_0 : p_{home} = p_{dona}
+$$
 
 Abans de començar amb el codi, instal·lem i importem les llibreries que farem servir:
 
-
 ```{r setup}
 # Instal·lacio de paquets
-# install.packages("tidyverse")
 # install.packages("caret")
-# install.packages("randomForest")
-# install.packages("ggplot2")
-# install.packages("patchwork")
-# install.packages("dplyr")
 # install.packages("cluster")
 # install.packages("corrplot")
-# install.packages("factoextra")
-# install.packages("kableExtra")
-# install.packages("gridExtra")
-# install.packages("mltools")
 # install.packages("data.table")
+# install.packages("dplyr")
+# install.packages("factoextra")
+# install.packages("ggplot2")
+# install.packages("gridExtra")
+# install.packages("kableExtra")
+# install.packages("mltools")
+# install.packages("patchwork")
+# install.packages("randomForest")
+# install.packages("tidyverse")
 
 ## Carregar les llibreries
-library(tidyverse)
 library(caret)
-library(corrplot)
-library(randomForest)
-library(ggplot2)
-library(patchwork)
-library(dplyr)
 library(cluster)
-library(factoextra)
-library(kableExtra)
-library(gridExtra)
-library(mltools)
+library(corrplot)
 library(data.table)
+library(dplyr)
+library(factoextra)
+library(ggplot2)
+library(gridExtra)
+library(kableExtra)
+library(mltools)
+library(patchwork)
+library(randomForest)
+library(tidyverse)
 ```
 
 # 1. Carregar i preparar les dades
@@ -70,6 +75,26 @@ kbl(head(df), booktabs = TRUE) %>%
   scroll_box(width = "900px")
 ```
 
+El dataset triat té les següents columnes, i han recollit valors per gairebé vint-i-vuit mil persones:
+
+* **`id`:** és un identificador numèric per cada usuari.
+* **`Gender`:** indica el gènere de cada usuari.                          
+* **`Age`:** és l'edat de cada persona del dataset.
+* **`City`:** ciutat de residència de la persona entrevistada.                                 
+* **`Profession`:** feina a la qual es dediquen.
+* **`Academic.Pressure`:** nivell de pressió acadèmica a la que estan sotmesos.                
+* **`Work.Pressure`:** nivell de pressió laboral a la que estan sotmesos.  
+* **`CGPA`:** nota mitjana acumulada de cada estudiant.                                
+* **`Study.Satisfaction`:** nivell de satisfacció amb els estudis.
+* **`Job.Satisfaction`:** nivell de satisfacció amb la feina.                    
+* **`Sleep.Duration`:** hores que dormen cada dia, de mitja.
+* **`Dietary.Habits`:** descriu com de saludables són els seus hàbits alimenticis.
+* **`Degree`:** el nivell d'estudis que estan estudiant.
+* **`Have.you.ever.had.suicidal.thoughts..`:** és una variable booleana que indica si algun cop han tingut pensaments suicides.
+* **`Work.Study.Hours`:** quantitat d'hores mitjana dedicada a estudiar o treballar.
+* **`Financial.Stress`:** nivell d'estrès econòmic al qual estan sotmesos.
+* **`Family.History.of.Mental.Illness`:** indica si la seva família té un històric de malalties mentals.
+* **`Depression`:** Indica, de manera booleana, si experimenta o no depressió.
 
 # 2. Anàlisi explorativa de les dades
 
@@ -119,6 +144,7 @@ kbl(summary(df[, numerical_columns]), booktabs = TRUE, caption="Resum de les dad
 ```
 
 Si mirem les variables numèriques, observem el següent:
+
 * Pel que fa a l'edat, sembla que hi ha un gran salt entre el tercer quartil i el màxim (vint-i-nou anys); així que segurament trobem alguns valors extrems (__outliars__) aquí. 
 * Les columnes que indiquen satisfacció prenen valors entre 0 i 5, i volem destacar com `Job.Satisfaction` té una mitja de 0.000681 i una mediana de 0, valors molt molt baixos. 
 * Els valors d'hores d'estudi i feina diàries són entre 0 i 12, amb un rang gran al primer quartil, però cap valor que sembli invàlid.
@@ -147,7 +173,18 @@ do.call(grid.arrange, c(histograms, ncol = 3))
 do.call(grid.arrange, c(boxplots, ncol = 3))
 ```
 
-> TODO anàlisi dels boxplots i histogrames
+Mirant els histogrames, i boxplots, observem el següent:
+
+* Hi ha columnes que, tot i ser numèriques, només prenen un conjunt de valors molt petits: `Academic.Pressure`, `Work.Pressure`, `Study.Satisfaction`, `Job.Satisfaction` i `Financial.Stress` prenen valors en cinc o sis nivells.
+* Les columnes d'edat (`Age`) i nota mitja (`CGPA`) tenen outilars molt pronunciats; ho veiem en els punts que queden fora dels bigotis dels Boxplots.
+* La variable objectiu, `Depression`, només pren valors zero i u; i trobem que hi ha aproximadament cinc-mil instàncies més d'usuaris deprimits que no deprimits. Això pot provocar que els nostres models tendeixin a predir `Depression=1`:
+
+```{r}
+print(paste("Quantitat de files amb Depression 1 (Yes):", sum(df$Depression == 1)))
+print(paste("Quantitat de files amb Depression 0 (No):", sum(df$Depression == 0)))
+print(paste("Un model que predís sempre Depression=1 tindria un accuracy = ", sum(df$Depression == 1) / nrow(df) ))
+```
+Ja que si un model només predís `Depression=1` ja tindria, gairebé, un 0.6% d'accuracy. Per tant, és probable que haguem d'utilitzar estratègies per reduir els falsos positius en els nostres models supervisats.
 
 A més, podem estudiar la correlació entre les variables numèriques:
 
@@ -156,11 +193,20 @@ cor_matrix <- cor(df[, numerical_columns], use = "complete.obs", method = "pears
 corrplot(cor_matrix, method = "color", type = "upper", tl.cex = 0.8)
 ```
 
-> TODO comentar els resultats de la matriu de correlació
+Sembla que `Work.Pressure` està relacionat de manera forta i positiva amb `Job.Satisfaction`. Això pot semblar contraintuitiu, ja que sembla indicar que, com més pressió es pateix a la feina, més satisfets estan els usuaris. Per altra banda, la majoria d'usuaris han marcat 0 en ambdues categories:
+
+```{r}
+print(paste("Quantitat de files amb Work.Pressure diferent de 0:", sum(df$Work.Pressure != 0)))
+print(paste("Quantitat de files amb Job.Satisfaction diferent de 0:", sum(df$Job.Satisfaction != 0)))
+print(paste("Quantitat de files amb Work.Pressure i Job.Satisfaction diferent de 0:", sum(df$Job.Satisfaction != 0 & df$Work.Pressure != 0)))
+```
+I veiem que, dels més de vint-i-set mil, molt pocs usuaris han marcat valors diferents de 0 en aquestes categories (tres i vuit, respectivament), i que tots aquells que han marcat `Work.Pressure` diferent de 0, també han marcat `Job.Satisfaction` diferent de zero. Per tant, aquesta correlació ens diu poc.
+
+Per altra banda, sembla que `Academic.Pressure` té una correlació forta i positiva amb la depressió dels usuaris, i que `Financial.Stress` també, seguida de `Work.Study.Hours`. Per acabar, sembla que l'edat té una correlació negativa amb la depressió: com més joves, més propenços a estar deprimits. `Study.Satisfaction` també hi té una correlació negativa: sembla que, com més satisfets estan amb els seus estudis, menys possibilitats tenen d'estar deprimits. A diferènia de `Job.Satisfaction` i `Work.Pressure` veiem en els histogrames que `Academic.Pressure` i `Study.Satisfaction` prenen valors variats i diversos; per tant, aquesta correlació si que ens pot indicar tendències que veurem més endavant en els nostres models.
 
 # 2.3. Anàlisi explorativa de les dades qualitatives
 
-En primer lloc, volem explorar quins valors prenen les variables quantitatives:
+Ara, volem explorar quins valors prenen les variables quantitatives:
 
 ```{r}
 categorical_values <- sapply(df[, categorical_columns], function(col) paste(unique(col), collapse = ", "))
@@ -173,7 +219,7 @@ kbl(categorical_df, booktabs = TRUE, caption="Dades categòriques", colnames=cat
 
 Trobem que hi ha 5 rangs pel que fa a les hores de son, i quatre per als hàbits alimentaris; i ambdues categories contenen `Others` com a opció. En apartats següents discutirem si ho considerem opció no vàlida i la imputem, o si seguim endavant amb la categoria. El mateix passa amb `Degree`.
 
-Pel que fa a les variables categòriques, n'haurem de fer _one-hot_ encoding; potencialment utilitzant la funció [`one-hot`](https://www.rdocumentation.org/packages/mltools/versions/0.3.5/topics/one_hot) que proporciona R. Seguidament, mostrem amb `barplots` la distribució de cada una de les variables no-numèriques.
+Per tractar les variables categòriques, n'haurem de fer _one-hot_ encoding; potencialment utilitzant la funció [`one-hot`](https://www.rdocumentation.org/packages/mltools/versions/0.3.5/topics/one_hot) que proporciona R; i ho farem a l'apartat 3. Per a estudiar-les de manera explorativa mostrem amb `barplots` la distribució de cada una de les variables no-numèriques.
 
 ```{r, fig.height=25, fig.width=15}
 barplots <- list()
@@ -190,7 +236,21 @@ for (col in categorical_columns) {
 do.call(grid.arrange, c(barplots, ncol = 2))
 ```
 
-> TODO analitzar dades
+Si mirem les variables qualitatives, veiem el següent:
+
+* La quantitat d'homes i dones que han participat a l'estudi és gairebé igual.
+* A simple vista, les ciutats no mostren cap tendència.
+* La majoria dels entrevistats, com indica el nom del dataset, són estudiants:
+
+```{r}
+print(paste("Quantitat d'estidiants:", sum(df$Profession == "Student")))
+print(paste("Percentatge d'estidiants:", sum(df$Profession == "Student") / nrow(df)))
+```
+
+* Pel que fa a `Sleep.Duration` i `Dietary.Habits` totes les categories tenen quantitats comparables de respostes, llevat de `Others`, que en té molt poques.
+* El grau més comú és `Class 12`, que és l'últim any d'insititut.
+* Dos terços dels entrevistats han tingut pensaments suicides.
+* Pel que fa a l'històric de malaltis mentals a la família, aproximadament la meitat dels entrevistats han respost que sí.
 
 # 3. Neteja de les dades
 
@@ -642,3 +702,7 @@ print(test_resultat)
 ```
 
 Com que el $p$-value obtingut (0.7644) és molt superior al llindar de significació ($\alpha = 0{,}05$), no es pot rebutjar la hipòtesi nul·la.
+
+# Conclusions 
+
+> TODO
