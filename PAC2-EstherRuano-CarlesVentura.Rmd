@@ -15,7 +15,9 @@ toc-title: "Índex"
 
 Aquesta és la segona pràctica per equips de l'assignatura de Tipologia i cicle de vida de les dades. En aquesta pràctica prendrem un conjunt de dades i les estudiarem: en primer lloc, haurem d'analitzar la seva estructura i entendre quina forma tenen les dades, seguidament, triarem una variable objectiu i intentarem predir-la amb un sistema d'aprenentatge supervisat. Finalment, triarem un sistema no supervisat per estudiar les dades. Amb això, haurem aconseguit estudiar les dades i presentarem els resultats en forma de gràfica. 
 
-Per realitzar aquesta pràctica, em triat un dataset de kaggle anomenat [Student Depression Dataset](https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset), que ens ha cridat l'atenció ja que conté informació sobre l'estat mental de més de vint-i-cinc mil estudiants. A més, aquest dataset conté columnes de tota mena: categòriques, numèriques, geogràfiques... i ens permetrà treballar amb molts escenaris diferents. Prendrem la variable booleana `Depression_Status` com a variable objectiu, i la intentarem predir amb el nostre model supervisat. Finalment, també aplicarem contrast d'hipòtesi per respondre a la nostra pregunta de recerca:
+Per realitzar aquesta pràctica, em triat un dataset de kaggle anomenat [Student Depression Dataset](https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset), que ens ha cridat l'atenció ja que conté informació sobre l'estat mental de més de vint-i-cinc mil estudiants. A més, aquest dataset conté columnes de tota mena: categòriques, numèriques, geogràfiques... i ens permetrà treballar amb molts escenaris diferents. Prendrem la variable booleana `Depression_Status` com a variable objectiu, i la intentarem predir amb el nostre model supervisat.
+
+Plantegem, per tant, el problema d'entendre quins factors influeixen més en la depressió dels estudiants i, a més, també aplicarem contrast d'hipòtesi per respondre a la nostra pregunta de recerca:
 
 > Depèn la distribució de la depressió del gènere?
 
@@ -706,3 +708,5 @@ Com que el $p$-value obtingut (0.7644) és molt superior al llindar de significa
 # Conclusions 
 
 > TODO
+
+> Ha d'incloure com/si hem resolt el problema i la pregunta de recerca
