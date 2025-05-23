@@ -44,6 +44,7 @@ Abans de començar amb el codi, instal·lem i importem les llibreries que farem 
 # install.packages("patchwork")
 # install.packages("randomForest")
 # install.packages("tidyverse")
+# install.packages("knitr")
 
 ## Carregar les llibreries
 library(caret)
@@ -59,6 +60,7 @@ library(mltools)
 library(patchwork)
 library(randomForest)
 library(tidyverse)
+library(knitr)
 ```
 
 # 1. Carregar i preparar les dades
@@ -446,97 +448,146 @@ confusionMatrix(pred_rf, df_test$Depression)
 
 > TODO comentar resultats
 
-## 4.2. Model no supervisat: clustering d'estudiants
+## 4.2 Model no supervisat: clustering d'estudiants
 
-### 4.2.1 Selecció de variables rellevants
-
+### 4.2.1 Preparació del dataset per a l’anàlisi de clústers
 ```{r}
-# Torno a carregar el dataset per estar 100% segur que no està contaminat
-df <- read.csv("data/student_depression_dataset.csv")
-# Normalitzar noms de columnes
-colnames(df) <- make.names(colnames(df))
-
-# Eliminar columna ID
-df <- df %>% select(-id)
-
-# Eliminar files on Degree és "'Class 12'" (Pot ser un error....)
-df <- df %>% filter(Degree != "'Class 12'")
-
-# Crear df_cluster amb les columnes seleccionades
+# Crear df_cluster amb les columnes seleccionades per a l'anàlisi de clústers
 df_cluster <- df %>%
-  select(Gender, Age, Degree, Profession,
+  select(Gender, Age, Profession,
          Academic.Pressure, Work.Pressure,
          CGPA, Study.Satisfaction, Job.Satisfaction,
          Sleep.Duration, Dietary.Habits,
          Have.you.ever.had.suicidal.thoughts..,
          Work.Study.Hours, Financial.Stress,
-         Family.History.of.Mental.Illness)
-
+         Family.History.of.Mental.Illness, Depression)
 ```
 
-### 4.2.2 Codificació i escalat de dades
+Per a la construcció del dataframe `df_cluster` destinat a l’anàlisi de clústers, s’han seleccionat variables que aporten informació rellevant i mesurable sobre les característiques dels individus en relació amb el seu estat psicològic i factors associats.
+
+S’han exclòs variables qualitatives com **Degree** o **City**, ja que presenten una gran varietat de categories amb poca relació directa amb els aspectes d’interès per a l’anàlisi, i la seva inclusió podria generar un excés de soroll (*noise*) que dificultaria la identificació de patrons clars. Aquestes variables tendeixen a dispersar la informació i a augmentar la complexitat del model sense aportar un valor predictiu o descriptiu significatiu.
+
+D’aquesta manera, el dataframe final inclou variables demogràfiques, acadèmiques, de salut mental i d’hàbits de vida que són més susceptibles de definir grups homogeni amb característiques comunes i que contribueixen a obtenir clusters més interpretables i robustos.
+
+### 4.2.2 Neteja i escalat de les dades
 ```{r}
-# Separem les qualitatives i quantitatives
-qual_cols <- c("Gender", "Profession", "Academic.Pressure", "Work.Pressure",
-               "Study.Satisfaction", "Job.Satisfaction", "Dietary.Habits",
-               "Have.you.ever.had.suicidal.thoughts..", "Financial.Stress",
-               "Family.History.of.Mental.Illness", "Sleep.Duration")
-num_cols <- c("Age", "CGPA", "Work.Study.Hours")
+# Escalem totes les columnes perquè tinguin mitjana 0 i desviació estàndard 1
+# Això evita que les variables amb escales més grans tinguin més pes en l'anàlisi
 
-# Dummy només per a qualitatives
-dummies <- dummyVars(" ~ .", data = df_cluster[, qual_cols])
-df_dummies <- predict(dummies, newdata = df_cluster[, qual_cols]) %>% as.data.frame()
+# Definim les columnes categòriques a codificar excloent-ne Degree i City
+categorical_columns_to_encode <- setdiff(categorical_columns, c("Degree", "City"))
 
-# Combinar les columnes numèriques amb les dummies
-df_numeric <- df_cluster[, num_cols]
-df_combined <- bind_cols(df_numeric, df_dummies)
+# Apliquem codificació one-hot a les columnes categòriques seleccionades
+df_cluster_encoded <- one_hot(df_cluster, cols = categorical_columns_to_encode)
 
-# Normalitzar les columnes numèriques dins del dataframe combinat
-df_scaled <- df_combined
-df_scaled[, num_cols] <- scale(df_combined[, num_cols])
+# Apliquem l'escalat estàndard a totes les columnes del conjunt de dades
+df_scaled <- as.data.frame(scale(df_cluster_encoded))
+
+# Busquem columnes que tinguin el mateix valor en totes les files
+cols_constants <- names(df_scaled)[sapply(df_scaled, function(x) length(unique(x)) <= 1)]
+cat("Columnes constants que s'eliminaran:\n")
+print(cols_constants)
+
+# Eliminem les columnes que no varien i per tant no aporten informació útil
+df_scaled <- df_scaled[, !(names(df_scaled) %in% cols_constants)]
+cat("Columnes eliminades per ser constants:", length(cols_constants), "\n")
+
+# Eliminem les files que contenen valors no finits com NA, NaN o Inf
+files_inicials <- nrow(df_scaled)
+df_scaled <- df_scaled[apply(df_scaled, 1, function(x) all(is.finite(x))), ]
+files_eliminades <- files_inicials - nrow(df_scaled)
+cat("Files eliminades per ser NA, NaN o Inf:", files_eliminades, "\n")
 ```
 
 ### 4.2.3 Mètode del colze per determinar k
 
 ```{r}
+# Apliquem el mètode del colze per calcular el WSS per a valors de k de l'1 al 10
 set.seed(321)
 wss <- map_dbl(1:10, function(k) {
   kmeans(df_scaled, centers = k, nstart = 10)$tot.withinss
 })
 
+# Representem gràficament el WSS per veure el punt del colze i determinar el k òptim
 plot(1:10, wss, type = "b", pch = 19,
      xlab = "Nombre de clústers (k)",
      ylab = "Total Within Sum of Squares",
      main = "Mètode del colze")
 ```
 
-### 4.2.4 Aplicació de k-means amb k = 4
+### 4.2.4 Anàlisi dels resultats del mètode del colze (WSS - Within Sum of Squares)
+
+```{r }
+print(wss)
+```
+La variable `wss` representa la suma total de la variància interna dins dels clústers per diferents valors de k (nombre de clústers), des de 1 fins a 10.
+
+Observem que la disminució del WSS és significativa des de `k = 1` fins a `k = 5`, moment en què passa de `975765.0 a 831195.2`. Aquesta reducció indica que afegir clústers en aquest interval millora notablement la cohesió interna dels grups.
+
+A partir de `k = 5`, les reduccions successives són més petites (per exemple, de 831195.2 a 815267.1 i després a 806315.9), la qual cosa indica que afegir més clústers no aporta una millora significativa en la compactació dels grups.
+
+Aquest patró mostra que la major part de la millora en la cohesió dels clústers s’aconsegueix amb 5 clústers.
+
+Per tant, el mètode del colze recomana seleccionar `k = 5`, ja que és el punt a partir del qual la reducció del WSS comença a ser menys pronunciada i augmentar el nombre de clústers no aporta beneficis rellevants al model.
+
+### 4.2.4 Aplicació de k-means amb k = 5  
 
 ```{r}
 set.seed(123)
-kmeans_model <- kmeans(df_scaled, centers = 4, nstart = 25)
-df$cluster <- as.factor(kmeans_model$cluster)
+kmeans_model <- kmeans(df_scaled, centers = 5, nstart = 25)
+df_cluster$cluster <- as.factor(kmeans_model$cluster)
 ```
+
+A partir de l’anàlisi prèvia mitjançant el mètode del colze, hem determinat que el nombre òptim de clústers per segmentar les dades és `k=5`.
 
 ### 4.2.5 Valors mitjans de les variables quantitatives de cada clúster
 
 ```{r}
-df %>%
+df_cluster %>%
   group_by(cluster) %>%
   summarise(
     Age_mean = mean(Age, na.rm = TRUE),
     CGPA_mean = mean(CGPA, na.rm = TRUE),
-    WorkStudy_mean = mean(Work.Study.Hours, na.rm = TRUE),
+    Work.Study.Hours_mean = mean(Work.Study.Hours, na.rm = TRUE),
+    Academic.Pressure_mean = mean(Academic.Pressure, na.rm = TRUE),
+    Study.Satisfaction_mean = mean(Study.Satisfaction, na.rm = TRUE),
+    Financial.Stress_mean = mean(Financial.Stress, na.rm = TRUE),
+    Depression_mean = mean(Depression, na.rm = TRUE),
     n = n()
+  ) %>%
+  kbl(digits = 2, caption = "Valors mitjans per clúster") %>%
+  add_header_above(c(
+    " " = 1,
+    "Demografia" = 1,
+    "Rendiment" = 2,
+    "Pressió" = 1,
+    "Satisfacció i Estrès" = 2,
+    "Depressió" = 1,
+    "n" = 1
+  )) %>%
+  kable_styling(
+    font_size = 11,
+    full_width = FALSE,
+    bootstrap_options = c("striped", "hover"),
+    position = "center"
   )
+
 ```
+
+Els resultats dels clústers mostren una associació clara entre nivells elevats de **pressió acadèmica** i **estrès financer** amb un augment del **nivell mitjà de depressió**.
+
+Els **clústers 2, 4 i 5** presenten valors més alts en pressió acadèmica (3.43, 3.37 i 3.46), estrès financer (3.40, 3.35 i 3.38) i depressió mitjana (0.81, 0.77 i 0.79 respectivament). Aquest patró suggereix que aquests factors podrien contribuir significativament a un **major malestar emocional** en aquests grups.
+
+En canvi, els **clústers 1 i 3** reflecteixen situacions més favorables, amb nivells més baixos tant d’estrès financer (2.74 i 2.71) com de depressió (0.23 i 0.22), així com una satisfacció amb els estudis lleugerament superior (3.11 i 3.10). Aquests grups poden representar estudiants amb un **millor estat de benestar psicològic** i una càrrega acadèmica i financera més manejable.
+
+Aquestes observacions reforcen la importància de **factors com la pressió acadèmica i l’estrès econòmic** com a possibles predictors del benestar mental entre els estudiants analitzats.
 
 ### 4.2.6 Distribucions de variables qualitatives
 
 ```{r echo = FALSE}
 
 # Depression
-df %>%
+df_cluster %>%
   group_by(cluster, Depression) %>%
   summarise(n = n(), .groups = 'drop') %>%
   group_by(cluster) %>%
@@ -546,9 +597,13 @@ df %>%
   facet_wrap(~ cluster) +
   theme_minimal() +
   labs(title = "Distribució de Depression per clúster")
+```
 
+Com s’ha observat prèviament, els **clústers 2, 4 i 5** són els que concentren el **nombre més elevat d’individus amb nivells alts de depressió**, fet que coincideix amb uns valors mitjans més alts de **pressió acadèmica** i **estrès financer** en aquests grups. 
+
+```{r echo = FALSE}
 # Pensaments suïcides
-df %>%
+df_cluster %>%
   group_by(cluster, Have.you.ever.had.suicidal.thoughts..) %>%
   summarise(n = n(), .groups = 'drop') %>%
   group_by(cluster) %>%
@@ -559,32 +614,19 @@ df %>%
   theme_minimal() +
   labs(title = "Pensaments suïcides per clúster")
 
-# Academic Pressure
-df %>%
-  group_by(cluster, Academic.Pressure) %>%
+df_cluster %>%
+  group_by(cluster, Gender) %>%
   summarise(n = n(), .groups = 'drop') %>%
   group_by(cluster) %>%
   mutate(prop = n / sum(n)) %>%
-  ggplot(aes(x = Academic.Pressure, y = prop, fill = Academic.Pressure)) +
+  ggplot(aes(x = Gender, y = prop, fill = Gender)) +
   geom_col() +
   facet_wrap(~ cluster) +
   theme_minimal() +
-  labs(title = "Distribució de Academic Pressure per clúster")
-
-# Financial Stress
-df %>%
-  group_by(cluster, Financial.Stress) %>%
-  summarise(n = n(), .groups = 'drop') %>%
-  group_by(cluster) %>%
-  mutate(prop = n / sum(n)) %>%
-  ggplot(aes(x = Financial.Stress, y = prop, fill = Financial.Stress)) +
-  geom_col() +
-  facet_wrap(~ cluster) +
-  theme_minimal() +
-  labs(title = "Distribució de Financial Stress per clúster")
+  labs(title = "Distribució de Gender per clúster")
 
 # Family History of Mental Illness
-df %>%
+df_cluster %>%
   group_by(cluster, Family.History.of.Mental.Illness) %>%
   summarise(n = n(), .groups = 'drop') %>%
   group_by(cluster) %>%
@@ -596,7 +638,7 @@ df %>%
   labs(title = "Distribució de Family History of Mental Illness per clúster")
 
 # Sleep Duration
-df %>%
+df_cluster %>%
   group_by(cluster, Sleep.Duration) %>%
   summarise(n = n(), .groups = 'drop') %>%
   group_by(cluster) %>%
@@ -606,44 +648,27 @@ df %>%
   facet_wrap(~ cluster) +
   theme_minimal() +
   labs(title = "Distribució de Sleep Duration per clúster")
-
-# Hàbits alimentaris
-df %>%
-  group_by(cluster, Dietary.Habits) %>%
-  summarise(n = n(), .groups = 'drop') %>%
-  group_by(cluster) %>%
-  mutate(prop = n / sum(n)) %>%
-  ggplot(aes(x = Dietary.Habits, y = prop, fill = Dietary.Habits)) +
-  geom_col() +
-  facet_wrap(~ cluster) +
-  theme_minimal() +
-  labs(title = "Distribució dels hàbits alimentaris per clúster")
-
-# Degree
-df %>%
-  group_by(cluster, Degree) %>%
-  summarise(n = n(), .groups = 'drop') %>%
-  group_by(cluster) %>%
-  mutate(prop = n / sum(n)) %>%
-  ggplot(aes(x = Degree, y = prop, fill = Degree)) +
-  geom_col() +
-  facet_wrap(~ cluster) +
-  theme_minimal() +
-  labs(title = "Distribució de Degree per clúster")
-
-
 ```
 
-# 5 Contrast d'hipòtesis entre Gender i Depression
+### 4.2.7 Conclusions variables qualitatives
 
-## 5.1 Carrego el dataset i mostro la proporcio Dones/Homes amb o sense Depressió
+L’anàlisi de les variables qualitatives per clúster reforça els patrons observats en les variables quantitatives, especialment en relació amb la salut mental i el benestar emocional dels estudiants.
+
+Una observació destacada és la variable **“Have you ever had suicidal thoughts”**. Els **clústers 2, 4 i 5**, que ja mostraven valors mitjans més alts de **depressió**, **estrès financer** i **pressió acadèmica**, són també els que concentren una **proporció més elevada d’individus que han afirmat haver tingut pensaments suïcides**. Aquesta coincidència apunta cap a un perfil de **major vulnerabilitat psicològica** en aquests grups.
+
+D’altra banda, els **clústers 1 i 3** presenten proporcions més altes d’estudiants que **no han experimentat pensaments suïcides**, en línia amb els seus valors més baixos de depressió i estrès. Aquests clústers podrien representar estudiants amb més **resiliència emocional** o **entorns menys adversos**.
+
+Pel que fa a la variable **“Sleep Duration”**, es detecta que els clústers amb més casos de depressió (**2, 4 i 5**) presenten també una **major proporció d’individus que dormen menys de 5 hores per nit**, i menys que dormin més de 8 hores. Aquesta dada suggereix una possible **relació entre privació de son i malestar emocional**.
+
+Altres variables com **“Gender”** o **“Family History of Mental Illness”** no semblen mostrar diferències clares entre clústers ni aportar informació significativa per a la segmentació, segons l’anàlisi visual realitzada.
+
+Aquestes troballes posen de manifest com certes **variables qualitatives poden complementar de manera rellevant les conclusions derivades de les dades quantitatives**, ajudant a perfilar grups de risc i identificar necessitats específiques en la població estudiada.
+
+# 5. Contrast d'hipòtesis entre Gender i Depression
+
+## 5.1 Proporció Dones/Homes amb o sense Depressió
 
 ```{r }
-# Torno a carregar el dataset per estar 100% segur que no està contaminat
-df <- read.csv("data/student_depression_dataset.csv")
-# Normalitzar noms de columnes
-colnames(df) <- make.names(colnames(df))
-
 # Trobar les proporcions de Dones/Homes amb o sense Depressió
 df_prop <- df %>%
   group_by(Gender, Depression) %>%
@@ -666,9 +691,19 @@ ggplot(df_prop, aes(x = Gender, y = prop, fill = Depression)) +
   theme_minimal()
 ```
 
+Pel que fa a la distribució de depressió, s’observa que un **58,5% de les dones** i un **58,7% dels homes** presenten depressió, mentre que un **41,5% de les dones** i un **41,3% dels homes** no en tenen. Aquestes proporcions gairebé idèntiques indiquen que, tot i les diferències en la mida de la mostra per gènere, la probabilitat de tenir depressió és pràcticament la mateixa en ambdós grups.
+
 ## 5.2 Contrast d'hipòtesis de dues proporcions 
 
-Per analitzar si hi ha una associació entre el gènere i la presència de depressió, plantegem el següent contrast d'hipòtesis:
+Utilitzarem aquest contrast per determinar si existeix una **diferència significativa** entre les proporcions de dos grups independents. En el nostre cas, volem saber si la **proporció de persones amb depressió** difereix entre **homes i dones**.
+
+Aquest test es basa en la **distribució binomial**, ja que la variable d’interès (**presència o no de depressió**) és binària. Quan la **mida de la mostra** és prou gran, el **teorema del límit central** garanteix que la distribució de la proporció mostral s’aproxima a una **distribució normal**. Aquesta aproximació permet aplicar un test basat en la distribució normal per comparar les proporcions.
+
+A diferència d’altres proves estadístiques, en el test de proporcions **no cal verificar la normalitat ni la homogeneïtat de la variància**, ja que el model parteix de la **distribució binomial** i l’aproximació normal que en deriva.
+
+En aquest estudi, amb una mostra superior a **20.000 registres**, es compleixen àmpliament aquestes condicions, cosa que fa que el test de proporcions sigui una eina **robusta** per avaluar si la proporció de depressió difereix significativament entre homes i dones.
+
+Per això, plantegem el següent **contrast d’hipòtesis** per avaluar l’associació entre gènere i presència de depressió:
 
 **Hipòtesi nul·la ($H_0$):**  
 No hi ha diferències en la proporció de persones amb depressió entre homes i dones.
@@ -703,7 +738,7 @@ test_resultat <- prop.test(
 print(test_resultat)
 ```
 
-Com que el $p$-value obtingut (0.7644) és molt superior al llindar de significació ($\alpha = 0{,}05$), no es pot rebutjar la hipòtesi nul·la.
+El contrast d’hipòtesis no proporciona evidència estadística suficient per rebutjar la hipòtesi nul·la ($H_0$). Amb un valor de $p = 0.7578$, superior al nivell de significació ($\alpha = 0{,}05$), no es pot afirmar que hi hagi diferències significatives en la proporció de persones amb depressió entre homes i dones.
 
 # Conclusions 
 

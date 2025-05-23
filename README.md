@@ -16,7 +16,9 @@ Abans d'executar l’script, assegura’t de tenir instal·lades les següents l
 install.packages(c(
   "tidyverse", "caret", "randomForest",
   "ggplot2", "patchwork", "dplyr",
-  "cluster", "factoextra"
+  "cluster", "factoextra", "corrplot",
+  "data.table", "gridExtra", "kableExtra",
+  "mltools", "knitr"
 ))
 ```
 
@@ -28,7 +30,7 @@ data/student_depression_dataset.csv
 
 ## Execució
 
-1. Obre el fitxer `.Rmd` amb RStudio.
+1. Obre el fitxer `PAC2-EstherRuano-CarlesVentura.Rmd` amb RStudio.
 2. Comprova que el fitxer CSV es troba en el camí correcte (`data/student_depression_dataset.csv`).
 3. Fes clic a **Knit** per generar l’informe (en HTML o PDF).
 
@@ -56,14 +58,14 @@ data/student_depression_dataset.csv
 
 ### 4. Model no supervisat: Clustering (K-means)
 
-- Aplicació de K-means amb 4 clústers.
+- Aplicació de K-means amb 5 clústers.
 - Utilització de variables numèriques normalitzades i codificades.
 - Visualització dels clústers.
 
 ### 5. Contrast d’hipòtesis
 
 - Test de proporcions per determinar si hi ha diferències significatives entre homes i dones pel que fa a la depressió.
-- Resultat: Amb un p-value de 0.7644 no es troba una diferència estadísticament significativa (p > 0.05).
+- Resultat: Amb un p-value de 0.7578 no es troba una diferència estadísticament significativa (p > 0.05).
 
 ## Fitxer de dades
 
@@ -83,14 +85,14 @@ El fitxer `student_depression_dataset.csv` ha de contenir columnes com:
 ## Resultats destacats
 
 - **Model Random Forest**: Ofereix una predicció acceptable de la depressió, amb una accuracy del 83'85%.
-- **K-means**:  Els clústers amb una major proporció d’estudiants que pateixen una elevada pressió acadèmica presenten també un percentatge més alt de casos de depressió.
-- **Hipòtesi de gènere**: Amb un p-value de 0.7644 no s’han trobat evidències per afirmar que la depressió depèn del gènere en aquest conjunt de dades.
+- **K-means**:  Els clústers amb una major proporció d’estudiants han tingut pensaments suïcides i que pateixen una elevada pressió acadèmica presenten també un percentatge més alt de casos de depressió.
+- **Hipòtesi de gènere**: Amb un p-value de 0.7578 no s’han trobat evidències per afirmar que la depressió depèn del gènere en aquest conjunt de dades.
 
 ## Estructura del projecte
 
 ```
 ├── README.md
-├── analisi_alternatiu_salut_mental.Rmd
+├── PAC2-EstherRuano-CarlesVentura.Rmd
 ├── data/
 │   └── student_depression_dataset.csv
 ```
