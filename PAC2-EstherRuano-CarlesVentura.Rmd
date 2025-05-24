@@ -15,13 +15,13 @@ toc-title: "Índex"
 
 Aquesta és la segona pràctica per equips de l'assignatura de Tipologia i cicle de vida de les dades. En aquesta pràctica prendrem un conjunt de dades i les estudiarem: en primer lloc, haurem d'analitzar la seva estructura i entendre quina forma tenen les dades, seguidament, triarem una variable objectiu i intentarem predir-la amb un sistema d'aprenentatge supervisat. Finalment, triarem un sistema no supervisat per estudiar les dades. Amb això, haurem aconseguit estudiar les dades i presentarem els resultats en forma de gràfica. 
 
-Per realitzar aquesta pràctica, em triat un dataset de kaggle anomenat [Student Depression Dataset](https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset), que ens ha cridat l'atenció ja que conté informació sobre l'estat mental de més de vint-i-cinc mil estudiants. A més, aquest dataset conté columnes de tota mena: categòriques, numèriques, geogràfiques... i ens permetrà treballar amb molts escenaris diferents. Prendrem la variable booleana `Depression_Status` com a variable objectiu, i la intentarem predir amb el nostre model supervisat.
+Per realitzar aquesta pràctica, hem triat un dataset de kaggle anomenat [Student Depression Dataset](https://www.kaggle.com/datasets/adilshamim8/student-depression-dataset), que ens ha cridat l'atenció perquè conté informació sobre l'estat mental de més de vint-i-cinc mil estudiants. A més, aquest dataset conté columnes de tota mena: categòriques, numèriques, geogràfiques... i ens permetrà treballar amb molts escenaris diferents. Prendrem la variable booleana `Depression_Status` com a variable objectiu, i la intentarem predir amb el nostre model supervisat.
 
 Plantegem, per tant, el problema d'entendre quins factors influeixen més en la depressió dels estudiants i, a més, també aplicarem contrast d'hipòtesi per respondre a la nostra pregunta de recerca:
 
-> Depèn la distribució de la depressió del gènere?
+> Hi ha una diferència estadísticament significativa entre la proporció d'individus deprimits de cada gènere?
 
-I la respondrem formulant la hipòtesi de que són iguals i aplicant contrast d'hipòtesis sobre:
+I la respondrem formulant la hipòtesi que són iguals i aplicant contrast d'hipòtesis sobre:
 
 $$
 H_0 : p_{home} = p_{dona}
@@ -40,11 +40,13 @@ Abans de començar amb el codi, instal·lem i importem les llibreries que farem 
 # install.packages("ggplot2")
 # install.packages("gridExtra")
 # install.packages("kableExtra")
+# install.packages("knitr")
 # install.packages("mltools")
 # install.packages("patchwork")
+# install.packages("pROC")
 # install.packages("randomForest")
+# install.packages("smotefamily")
 # install.packages("tidyverse")
-# install.packages("knitr")
 
 ## Carregar les llibreries
 library(caret)
@@ -56,11 +58,13 @@ library(factoextra)
 library(ggplot2)
 library(gridExtra)
 library(kableExtra)
+library(knitr)
 library(mltools)
 library(patchwork)
+library(pROC)
 library(randomForest)
+library(smotefamily)
 library(tidyverse)
-library(knitr)
 ```
 
 # 1. Carregar i preparar les dades
@@ -86,13 +90,13 @@ El dataset triat té les següents columnes, i han recollit valors per gairebé 
 * **`Age`:** és l'edat de cada persona del dataset.
 * **`City`:** ciutat de residència de la persona entrevistada.                                 
 * **`Profession`:** feina a la qual es dediquen.
-* **`Academic.Pressure`:** nivell de pressió acadèmica a la que estan sotmesos.                
-* **`Work.Pressure`:** nivell de pressió laboral a la que estan sotmesos.  
+* **`Academic.Pressure`:** nivell de pressió acadèmica a la qual estan sotmesos.                
+* **`Work.Pressure`:** nivell de pressió laboral a la qual estan sotmesos.  
 * **`CGPA`:** nota mitjana acumulada de cada estudiant.                                
 * **`Study.Satisfaction`:** nivell de satisfacció amb els estudis.
 * **`Job.Satisfaction`:** nivell de satisfacció amb la feina.                    
-* **`Sleep.Duration`:** hores que dormen cada dia, de mitja.
-* **`Dietary.Habits`:** descriu com de saludables són els seus hàbits alimenticis.
+* **`Sleep.Duration`:** hores que dormen cada dia, de mitjana.
+* **`Dietary.Habits`:** descriu com són de saludables els seus hàbits alimentaris.
 * **`Degree`:** el nivell d'estudis que estan estudiant.
 * **`Have.you.ever.had.suicidal.thoughts..`:** és una variable booleana que indica si algun cop han tingut pensaments suicides.
 * **`Work.Study.Hours`:** quantitat d'hores mitjana dedicada a estudiar o treballar.
@@ -206,6 +210,14 @@ print(paste("Quantitat de files amb Work.Pressure i Job.Satisfaction diferent de
 ```
 I veiem que, dels més de vint-i-set mil, molt pocs usuaris han marcat valors diferents de 0 en aquestes categories (tres i vuit, respectivament), i que tots aquells que han marcat `Work.Pressure` diferent de 0, també han marcat `Job.Satisfaction` diferent de zero. Per tant, aquesta correlació ens diu poc.
 
+A més, com que gairebé cap usuari ha introduït un valor diferent de zero, no té sentit mantenir aquestes columnes al nostre dataset; així doncs, les eliminem.
+
+``` {r}
+df <- df %>% select(-Job.Satisfaction)
+df <- df %>% select(-Work.Pressure)
+numerical_columns <- c("Age", "Academic.Pressure", "CGPA", "Study.Satisfaction", "Work.Study.Hours", "Financial.Stress", "Depression")
+```
+
 Per altra banda, sembla que `Academic.Pressure` té una correlació forta i positiva amb la depressió dels usuaris, i que `Financial.Stress` també, seguida de `Work.Study.Hours`. Per acabar, sembla que l'edat té una correlació negativa amb la depressió: com més joves, més propenços a estar deprimits. `Study.Satisfaction` també hi té una correlació negativa: sembla que, com més satisfets estan amb els seus estudis, menys possibilitats tenen d'estar deprimits. A diferènia de `Job.Satisfaction` i `Work.Pressure` veiem en els histogrames que `Academic.Pressure` i `Study.Satisfaction` prenen valors variats i diversos; per tant, aquesta correlació si que ens pot indicar tendències que veurem més endavant en els nostres models.
 
 # 2.3. Anàlisi explorativa de les dades qualitatives
@@ -248,13 +260,21 @@ Si mirem les variables qualitatives, veiem el següent:
 
 ```{r}
 print(paste("Quantitat d'estidiants:", sum(df$Profession == "Student")))
-print(paste("Percentatge d'estidiants:", sum(df$Profession == "Student") / nrow(df)))
+print(paste("Quantitat de no estidiants:", sum(df$Profession != "Student")))
+print(paste("Percentatge d'estidiants:", sum(df$Profession == "Student") / nrow(df) * 100, "%."))
 ```
 
 * Pel que fa a `Sleep.Duration` i `Dietary.Habits` totes les categories tenen quantitats comparables de respostes, llevat de `Others`, que en té molt poques.
 * El grau més comú és `Class 12`, que és l'últim any d'insititut.
 * Dos terços dels entrevistats han tingut pensaments suicides.
 * Pel que fa a l'històric de malaltis mentals a la família, aproximadament la meitat dels entrevistats han respost que sí.
+
+Amb aquestes dades, decidim eliminar la columna de professió, ja que aporta molt poca informació.
+
+``` {r}
+df <- df %>% select(-Profession)
+categorical_columns <-c("Gender", "City", "Sleep.Duration", "Dietary.Habits", "Degree", "Have.you.ever.had.suicidal.thoughts..", "Family.History.of.Mental.Illness")
+```
 
 # 3. Neteja de les dades
 
@@ -411,9 +431,18 @@ Ara, compararem aquestes prediccions amb els valors reals; farem servir dues mes
 ``` {r}
 confusionMatrix(as.factor(pred_lm_class), as.factor(df_test$Depression))
 ```
-Observem una accuracy de 0.84, prou bona, i la matriu de confusió ens indica que la quantitat de falsos positius és prou superior a la de falsos negatius; és a dir, el nostre model tendeix a predir "Depression=1" més del que seria ideal. Això ho podem intentar ajustar amb mètodes de sampling o canviant la mesura per la qual optimitzem.
+```{r}
+roc_obj <- roc(df_test$Depression, pred_lm)
 
-> TODO
+plot(roc_obj, main = "Corva ROC for Depression Prediction")
+
+auc_value <- auc(roc_obj)
+print(paste("AUC:", auc_value))
+```
+
+Observem una accuracy de 0.84, prou bona, i la matriu de confusió ens indica que la quantitat de falsos positius és prou superior a la de falsos negatius; és a dir, el nostre model tendeix a predir "Depression=1" més del que seria ideal. Per altra banda, la corva ROC té molt bona pinta, i queda sota seu un àrea de 0.94, que és un valor molt bo.
+
+En aquest cas, com que els casos de `Depression=1` no són més que el doble dels de `Depression=0`, no s'aconsella fer oversampling; i els mètodes més comuns per fer-lo  [`SMOTE`](https://www.rdocumentation.org/packages/smotefamily/versions/1.4.0/topics/SMOTE) no ho suporten. Per tant, decidim intentar-ho amb un model equilibrat, com és el Random Forest, i veure com afecta al resultat.
 
 ### 4.1.3 Random Forest
 
@@ -446,7 +475,36 @@ kbl(importance(model_rf), booktabs = TRUE) %>%
 confusionMatrix(pred_rf, df_test$Depression)
 ```
 
-> TODO comentar resultats
+En aquest cas, veiem que l'accuracy ha passat a valdre: 0.83, inferior al que havíem obtingut amb una simple regressió lineal. Això ens fa pensar que hi ha alguna columna que pot estar aportant molt de soroll; si observem la taula anterior, veiem que hi ha moltes columnes, com ara les corresponents a les ciutats, que tenen valors negatius a `MeanDecreaseAccuracy`. Això vol dir que, si les eliminem, l'accuracy del nostre model pujarà. Per tant, eliminem aquestes, juntament amb aquelles que fan que l'accuracy no pugi més que 1, ja que poden estar afegint soroll.
+
+```{r}
+imp <- importance(model_rf)
+imp_df <- as.data.frame(imp)
+imp_df$Feature <- rownames(imp_df)
+selected_features <- imp_df$Feature[imp_df$MeanDecreaseAccuracy > 1]
+print(selected_features)
+```
+Extraiem aquestes columnes del nostre dataset.
+
+```{r}
+df_train_selected <- df_train[, c("Gender_Male", "Age", "City_Patna","Academic.Pressure", "CGPA","Study.Satisfaction", "Sleep.Duration_.Less.than.5.hours.","Sleep.Duration_.More.than.8.hours.", "Dietary.Habits_Healthy","Dietary.Habits_Moderate", "Dietary.Habits_Unhealthy","Degree_.Class.12.", "Have.you.ever.had.suicidal.thoughts.._No","Have.you.ever.had.suicidal.thoughts.._Yes", "Work.Study.Hours","Financial.Stress", "Family.History.of.Mental.Illness_No", "Depression")]
+df_test_selected  <- df_test[, c("Gender_Male", "Age", "City_Patna","Academic.Pressure", "CGPA","Study.Satisfaction", "Sleep.Duration_.Less.than.5.hours.","Sleep.Duration_.More.than.8.hours.", "Dietary.Habits_Healthy","Dietary.Habits_Moderate", "Dietary.Habits_Unhealthy","Degree_.Class.12.", "Have.you.ever.had.suicidal.thoughts.._No","Have.you.ever.had.suicidal.thoughts.._Yes", "Work.Study.Hours","Financial.Stress", "Family.History.of.Mental.Illness_No", "Depression")]
+```
+
+Amb només aquestes columnes, tornem a entrenar el nostre random forest, i avaluem els resultats.
+
+```{r}
+model_rf <- randomForest(Depression ~ ., data = df_train_selected, ntree = 200, importance = TRUE)
+pred_rf <- predict(model_rf, newdata = df_test_selected)
+
+kbl(importance(model_rf), booktabs = TRUE) %>%
+  kable_styling(latex_options = c("scale_down")) %>%
+  scroll_box(width = "900px")
+
+confusionMatrix(pred_rf, df_test_selected$Depression)
+```
+
+I l'accuracy ha pujat fins a 0.84; tot i això, el nostre model lineal ha donat millors resultats.
 
 ## 4.2 Model no supervisat: clustering d'estudiants
 
