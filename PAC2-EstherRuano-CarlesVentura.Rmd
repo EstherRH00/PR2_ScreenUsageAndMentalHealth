@@ -431,6 +431,8 @@ Ara, compararem aquestes prediccions amb els valors reals; farem servir dues mes
 ``` {r}
 confusionMatrix(as.factor(pred_lm_class), as.factor(df_test$Depression))
 ```
+També estudiem la corba ROC i l'àrea sota la mateixa, utilitzant la llibreria [`pRoc`](https://www.rdocumentation.org/packages/pROC/versions/1.18.5). 
+
 ```{r}
 roc_obj <- roc(df_test$Depression, pred_lm)
 
@@ -440,7 +442,7 @@ auc_value <- auc(roc_obj)
 print(paste("AUC:", auc_value))
 ```
 
-Observem una accuracy de 0.84, prou bona, i la matriu de confusió ens indica que la quantitat de falsos positius és prou superior a la de falsos negatius; és a dir, el nostre model tendeix a predir "Depression=1" més del que seria ideal. Per altra banda, la corva ROC té molt bona pinta, i queda sota seu un àrea de 0.94, que és un valor molt bo.
+Observem una accuracy de 0.84, prou bona, i la matriu de confusió ens indica que la quantitat de falsos positius és lleugerament  superior a la de falsos negatius; és a dir, el nostre model tendeix a predir "Depression=1" més del que seria ideal. Per altra banda, la corva ROC té molt bona pinta, i queda sota seu un àrea de 0.94, que és un valor molt bo.
 
 En aquest cas, com que els casos de `Depression=1` no són més que el doble dels de `Depression=0`, no s'aconsella fer oversampling; i els mètodes més comuns per fer-lo  [`SMOTE`](https://www.rdocumentation.org/packages/smotefamily/versions/1.4.0/topics/SMOTE) no ho suporten. Per tant, decidim intentar-ho amb un model equilibrat, com és el Random Forest, i veure com afecta al resultat.
 
@@ -448,7 +450,7 @@ En aquest cas, com que els casos de `Depression=1` no són més que el doble del
 
 Ara, farem la predicció amb un [Random Forest](https://en.wikipedia.org/wiki/Random_forest), que ens permetrà veure relacions no lineals, ja que combina diferents arbres de precisió i, a més, sol donar bons resultats en dades mixtes com les que tenim. Farem servir la funció [`randomForest`](https://www.rdocumentation.org/packages/randomForest/versions/4.7-1.2/topics/randomForest) que ens proporciona R i ho avaluem de nou amb una matriu de confusió. Aprofitem per passar-li el paràmetre `importance = TRUE` i així poder entendre els resultats. També limitem el valor de `ntree` per sota del que pren per defecte (500) per tal d'agilitzar l'execució del codi. 
 
-Ens adonem aque algunes columnes tenen caràcters problemàtics per al nostre arbre; així que canviem els seus noms utlilitzant [`make.names`](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/make.names). A més, com que volem que l'arbre faci classificació i no predicció, hem de canviar la variable `Depression` a categòrica.
+Ens adonem que algunes columnes tenen caràcters problemàtics per al nostre arbre; així que canviem els seus noms utlilitzant [`make.names`](https://www.rdocumentation.org/packages/base/versions/3.6.2/topics/make.names). A més, com que volem que l'arbre faci classificació i no predicció, hem de canviar la variable `Depression` a categòrica.
 
 
 ```{r}
