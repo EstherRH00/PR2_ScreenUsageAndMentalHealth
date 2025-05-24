@@ -482,13 +482,17 @@ imp <- importance(model_rf)
 imp_df <- as.data.frame(imp)
 imp_df$Feature <- rownames(imp_df)
 selected_features <- imp_df$Feature[imp_df$MeanDecreaseAccuracy > 1]
+
+# Afegim la variable objectiu (target) a la selecció
+selected_features <- c(selected_features, "Depression")
+
 print(selected_features)
 ```
 Extraiem aquestes columnes del nostre dataset.
 
 ```{r}
-df_train_selected <- df_train[, c("Gender_Male", "Age", "City_Patna","Academic.Pressure", "CGPA","Study.Satisfaction", "Sleep.Duration_.Less.than.5.hours.","Sleep.Duration_.More.than.8.hours.", "Dietary.Habits_Healthy","Dietary.Habits_Moderate", "Dietary.Habits_Unhealthy","Degree_.Class.12.", "Have.you.ever.had.suicidal.thoughts.._No","Have.you.ever.had.suicidal.thoughts.._Yes", "Work.Study.Hours","Financial.Stress", "Family.History.of.Mental.Illness_No", "Depression")]
-df_test_selected  <- df_test[, c("Gender_Male", "Age", "City_Patna","Academic.Pressure", "CGPA","Study.Satisfaction", "Sleep.Duration_.Less.than.5.hours.","Sleep.Duration_.More.than.8.hours.", "Dietary.Habits_Healthy","Dietary.Habits_Moderate", "Dietary.Habits_Unhealthy","Degree_.Class.12.", "Have.you.ever.had.suicidal.thoughts.._No","Have.you.ever.had.suicidal.thoughts.._Yes", "Work.Study.Hours","Financial.Stress", "Family.History.of.Mental.Illness_No", "Depression")]
+df_train_selected <- df_train[, ..selected_features]
+df_test_selected  <- df_test[, ..selected_features]
 ```
 
 Amb només aquestes columnes, tornem a entrenar el nostre random forest, i avaluem els resultats.
@@ -512,9 +516,9 @@ I l'accuracy ha pujat fins a 0.84; tot i això, el nostre model lineal ha donat 
 ```{r}
 # Crear df_cluster amb les columnes seleccionades per a l'anàlisi de clústers
 df_cluster <- df %>%
-  select(Gender, Age, Profession,
-         Academic.Pressure, Work.Pressure,
-         CGPA, Study.Satisfaction, Job.Satisfaction,
+  select(Gender, Age,
+         Academic.Pressure,
+         CGPA, Study.Satisfaction,
          Sleep.Duration, Dietary.Habits,
          Have.you.ever.had.suicidal.thoughts..,
          Work.Study.Hours, Financial.Stress,
@@ -578,25 +582,26 @@ plot(1:10, wss, type = "b", pch = 19,
 ```{r }
 print(wss)
 ```
-La variable `wss` representa la suma total de la variància interna dins dels clústers per diferents valors de k (nombre de clústers), des de 1 fins a 10.
 
-Observem que la disminució del WSS és significativa des de `k = 1` fins a `k = 5`, moment en què passa de `975765.0 a 831195.2`. Aquesta reducció indica que afegir clústers en aquest interval millora notablement la cohesió interna dels grups.
+Observem que la disminució del `WSS` és significativa des de `k = 1` fins a `k = 5`, període en què passa de `557580.0` a `413077.9`. Aquesta reducció indica que l'increment de clústers dins d’aquest interval millora notablement la cohesió interna dels grups.
 
-A partir de `k = 5`, les reduccions successives són més petites (per exemple, de 831195.2 a 815267.1 i després a 806315.9), la qual cosa indica que afegir més clústers no aporta una millora significativa en la compactació dels grups.
+Tot i això, la reducció entre `k = 5` i `k = 6` (de `413077.9` a `397168.7`) continua sent considerable, cosa que suggereix una millora addicional en la compactació dels grups.
 
-Aquest patró mostra que la major part de la millora en la cohesió dels clústers s’aconsegueix amb 5 clústers.
+A partir de `k = 6`, les reduccions successives en el `WSS` són molt més petites (per exemple, de `397168.7` a `388369.2` en `k = 7`), fet que indica que l’aportació de nous clústers més enllà de `k = 6` és marginal.
 
-Per tant, el mètode del colze recomana seleccionar `k = 5`, ja que és el punt a partir del qual la reducció del WSS comença a ser menys pronunciada i augmentar el nombre de clústers no aporta beneficis rellevants al model.
+Aquest patró mostra que la major part de la millora en la cohesió dels clústers s’aconsegueix amb `6` clústers.
 
-### 4.2.4 Aplicació de k-means amb k = 5  
+Per tant, el mètode del colze recomana seleccionar `k = 6`, ja que representa un bon equilibri entre la reducció significativa de la variància interna i la simplicitat del model. Afegir més clústers després de `k = 6` no aporta beneficis substancials.
+
+### 4.2.4 Aplicació de k-means amb k = 6  
 
 ```{r}
 set.seed(123)
-kmeans_model <- kmeans(df_scaled, centers = 5, nstart = 25)
+kmeans_model <- kmeans(df_scaled, centers = 6, nstart = 25)
 df_cluster$cluster <- as.factor(kmeans_model$cluster)
 ```
 
-A partir de l’anàlisi prèvia mitjançant el mètode del colze, hem determinat que el nombre òptim de clústers per segmentar les dades és `k=5`.
+A partir de l’anàlisi prèvia mitjançant el mètode del colze, hem determinat que el nombre òptim de clústers per segmentar les dades és `k=6`.
 
 ### 4.2.5 Valors mitjans de les variables quantitatives de cada clúster
 
@@ -632,13 +637,13 @@ df_cluster %>%
 
 ```
 
-Els resultats dels clústers mostren una associació clara entre nivells elevats de **pressió acadèmica** i **estrès financer** amb un augment del **nivell mitjà de depressió**.
+Els resultats dels clústers mostren una associació clara entre nivells elevats de pressió acadèmica i estrès financer amb un augment del nivell mitjà de depressió.
 
-Els **clústers 2, 4 i 5** presenten valors més alts en pressió acadèmica (3.43, 3.37 i 3.46), estrès financer (3.40, 3.35 i 3.38) i depressió mitjana (0.81, 0.77 i 0.79 respectivament). Aquest patró suggereix que aquests factors podrien contribuir significativament a un **major malestar emocional** en aquests grups.
+Els clústers `2`, `3`, `5` i `6` presenten valors més alts en pressió acadèmica (`3.34`, `3.41`, `3.54` i `3.43` respectivament), estrès financer (`3.32`, `3.38`, `3.41` i `3.39`) i depressió mitjana (`0.75`, `0.78`, `0.82` i `0.81`). Aquest patró suggereix que aquests factors podrien contribuir significativament a un major malestar emocional en aquests grups d’estudiants.
 
-En canvi, els **clústers 1 i 3** reflecteixen situacions més favorables, amb nivells més baixos tant d’estrès financer (2.74 i 2.71) com de depressió (0.23 i 0.22), així com una satisfacció amb els estudis lleugerament superior (3.11 i 3.10). Aquests grups poden representar estudiants amb un **millor estat de benestar psicològic** i una càrrega acadèmica i financera més manejable.
+En canvi, els clústers `1` i `4` reflecteixen situacions més favorables, amb nivells més baixos tant d’estrès financer (`2.72` i `2.71`) com de depressió (`0.22` en ambdós casos), així com una satisfacció amb els estudis lleugerament superior (`3.13` i `3.10`). Aquests grups poden representar estudiants amb un millor estat de benestar psicològic i una càrrega acadèmica i financera més manejable.
 
-Aquestes observacions reforcen la importància de **factors com la pressió acadèmica i l’estrès econòmic** com a possibles predictors del benestar mental entre els estudiants analitzats.
+Aquestes observacions reforcen la importància de factors com la pressió acadèmica i l’estrès econòmic com a possibles predictors del benestar mental entre els estudiants analitzats.
 
 ### 4.2.6 Distribucions de variables qualitatives
 
@@ -657,7 +662,7 @@ df_cluster %>%
   labs(title = "Distribució de Depression per clúster")
 ```
 
-Com s’ha observat prèviament, els **clústers 2, 4 i 5** són els que concentren el **nombre més elevat d’individus amb nivells alts de depressió**, fet que coincideix amb uns valors mitjans més alts de **pressió acadèmica** i **estrès financer** en aquests grups. 
+Com s’ha observat prèviament, els **clústers 2, 3, 5 i 6** són els que concentren el **nombre més elevat d’individus amb nivells alts de depressió**, fet que coincideix amb uns valors mitjans més alts de **pressió acadèmica** i **estrès financer** en aquests grups. 
 
 ```{r echo = FALSE}
 # Pensaments suïcides
@@ -712,11 +717,11 @@ df_cluster %>%
 
 L’anàlisi de les variables qualitatives per clúster reforça els patrons observats en les variables quantitatives, especialment en relació amb la salut mental i el benestar emocional dels estudiants.
 
-Una observació destacada és la variable **“Have you ever had suicidal thoughts”**. Els **clústers 2, 4 i 5**, que ja mostraven valors mitjans més alts de **depressió**, **estrès financer** i **pressió acadèmica**, són també els que concentren una **proporció més elevada d’individus que han afirmat haver tingut pensaments suïcides**. Aquesta coincidència apunta cap a un perfil de **major vulnerabilitat psicològica** en aquests grups.
+Una observació destacada és la variable **“Have you ever had suicidal thoughts”**. Els **clústers 2, 3, 5 i 6**, que ja mostraven valors mitjans més alts de **depressió**, **estrès financer** i **pressió acadèmica**, són també els que concentren una **proporció més elevada d’individus que han afirmat haver tingut pensaments suïcides**. Aquesta coincidència apunta cap a un perfil de **major vulnerabilitat psicològica** en aquests grups.
 
-D’altra banda, els **clústers 1 i 3** presenten proporcions més altes d’estudiants que **no han experimentat pensaments suïcides**, en línia amb els seus valors més baixos de depressió i estrès. Aquests clústers podrien representar estudiants amb més **resiliència emocional** o **entorns menys adversos**.
+D’altra banda, els **clústers 1 i 4** presenten proporcions més altes d’estudiants que **no han experimentat pensaments suïcides**, en línia amb els seus valors més baixos de depressió i estrès. Aquests clústers podrien representar estudiants amb més **resiliència emocional** o **entorns menys adversos**.
 
-Pel que fa a la variable **“Sleep Duration”**, es detecta que els clústers amb més casos de depressió (**2, 4 i 5**) presenten també una **major proporció d’individus que dormen menys de 5 hores per nit**, i menys que dormin més de 8 hores. Aquesta dada suggereix una possible **relació entre privació de son i malestar emocional**.
+Pel que fa a la variable **“Sleep Duration”**, es detecta que els clústers amb més casos de depressió (**2,3, 5 i 6**) presenten també una **major proporció d’individus que dormen menys de 5 hores per nit**, i menys que dormin més de 8 hores. Aquesta dada suggereix una possible **relació entre privació de son i malestar emocional**.
 
 Altres variables com **“Gender”** o **“Family History of Mental Illness”** no semblen mostrar diferències clares entre clústers ni aportar informació significativa per a la segmentació, segons l’anàlisi visual realitzada.
 
