@@ -441,8 +441,14 @@ plot(roc_obj, main = "Corva ROC for Depression Prediction")
 auc_value <- auc(roc_obj)
 print(paste("AUC:", auc_value))
 ```
+Finalment, estudiem quines columnes han estat més importants:
 
+``` {r}
+summary(lm_model)
+```
 Observem una accuracy de 0.84, prou bona, i la matriu de confusió ens indica que la quantitat de falsos positius és lleugerament  superior a la de falsos negatius; és a dir, el nostre model tendeix a predir "Depression=1" més del que seria ideal. Per altra banda, la corva ROC té molt bona pinta, i queda sota seu un àrea de 0.94, que és un valor molt bo.
+
+Pel que fa als coeficients, observarem quins tenen un coeficient més gran i, alhora, un p-valor petit. En aquesta categoria trobem `Academic.Pressure` (coeficient 0.1080479, p-valor < 2e-16 ), `Dietary.Habits_Healthy`(coeficient -0.1311164, p-valor < 2e-16 ), i `Have.you.ever.had.suicidal.thoughts.._No`(coeficient -0.3821575, p-valor < 2e-16 ). Això ens explica que la pressió acadèmica influencia positivament a que el resultat sigui de depressió, mentre que els hàbits alimentaris saludables i la manca de pensaments suicides ho influencien negativament. També volem destacar aquelles columnes amb un coeficient major que 0.05 en valor absolut: `Financial.Stress`, `Sleep.Duration_'Less than 5 hours'` (que tenen influència positiva) i `Dietary.Habits_Moderate` (que té influència negativa). Finalment, `Sleep.Duration_'5-6 hours'`, `Sleep.Duration_'7-8 hours'` i `Work.Study.Hours` afecten lleugera i positivament, mentre que `Study.Satisfaction`, `Family.History.of.Mental.Illness_No` i `Age`, negativament.
 
 En aquest cas, com que els casos de `Depression=1` no són més que el doble dels de `Depression=0`, no s'aconsella fer oversampling; i els mètodes més comuns per fer-lo  [`SMOTE`](https://www.rdocumentation.org/packages/smotefamily/versions/1.4.0/topics/SMOTE) no ho suporten. Per tant, decidim intentar-ho amb un model equilibrat, com és el Random Forest, i veure com afecta al resultat.
 
@@ -511,6 +517,8 @@ confusionMatrix(pred_rf, df_test_selected$Depression)
 ```
 
 I l'accuracy ha pujat fins a 0.84; tot i això, el nostre model lineal ha donat millors resultats.
+
+Si mirem els valors d'importància, trobem que `Academic.Pressure` té el més alt, amb diferència, seguit de `Financial.Stress` i `Age`. `Work.Study.Hours`, `Dietary.Habits_Unhealthy`, `Study.Satisfaction` i la presència o no de pensaments suicides, també tenen una importància gran.
 
 ## 4.2 Model no supervisat: clustering d'estudiants
 

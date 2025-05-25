@@ -4318,12 +4318,251 @@ llibreria <a href="https://www.rdocumentation.org/packages/pROC/versions/1.18.5"
 <pre class="r"><code>auc_value &lt;- auc(roc_obj)
 print(paste(&quot;AUC:&quot;, auc_value))</code></pre>
 <pre><code>## [1] &quot;AUC: 0.916979171271998&quot;</code></pre>
+<p>Finalment, estudiem quines columnes han estat més importants:</p>
+<pre class="r"><code>summary(lm_model)</code></pre>
+<pre><code>## 
+## Call:
+## lm(formula = Depression ~ ., data = df_train)
+## 
+## Residuals:
+##      Min       1Q   Median       3Q      Max 
+## -1.18758 -0.20250  0.02186  0.22286  1.16373 
+## 
+## Coefficients: (12 not defined because of singularities)
+##                                             Estimate Std. Error t value
+## (Intercept)                                0.5417787  0.0327907  16.522
+## Gender_Female                             -0.0003219  0.0046750  -0.069
+## Gender_Male                                       NA         NA      NA
+## Age                                       -0.0144708  0.0006220 -23.264
+## `City_&#39;Less Delhi&#39;`                        0.0630126  0.3419518   0.184
+## `City_&#39;Less than 5 Kalyan&#39;`                0.2199366  0.3418972   0.643
+## City_3.0                                   0.0064588  0.3417766   0.019
+## City_Agra                                 -0.0161167  0.0169085  -0.953
+## City_Ahmedabad                             0.0359250  0.0176730   2.033
+## City_Bangalore                             0.0144511  0.0185099   0.781
+## City_Bhavna                                0.1124892  0.3417618   0.329
+## City_Bhopal                                0.0156082  0.0176512   0.884
+## City_Chennai                              -0.0008241  0.0179162  -0.046
+## City_City                                  0.2626167  0.2418906   1.086
+## City_Delhi                                 0.0146314  0.0185586   0.788
+## City_Faridabad                             0.0247069  0.0219301   1.127
+## City_Gaurav                                0.0296673  0.3418846   0.087
+## City_Ghaziabad                             0.0056258  0.0187291   0.300
+## City_Harsh                                -0.0455873  0.3417603  -0.133
+## City_Harsha                               -0.2320462  0.3419913  -0.679
+## City_Hyderabad                             0.0345463  0.0162393   2.127
+## City_Indore                                0.0077384  0.0195459   0.396
+## City_Jaipur                               -0.0321350  0.0172161  -1.867
+## City_Kalyan                                0.0210581  0.0157217   1.339
+## City_Kanpur                                0.0105709  0.0198440   0.533
+## City_Khaziabad                             0.2129650  0.3419286   0.623
+## City_Kibara                                       NA         NA      NA
+## City_Kolkata                               0.0265560  0.0171557   1.548
+## City_Lucknow                              -0.0134718  0.0168647  -0.799
+## City_Ludhiana                             -0.0030364  0.0169061  -0.180
+## City_M.Com                                -0.0130848  0.3420039  -0.038
+## City_M.Tech                                       NA         NA      NA
+## City_ME                                   -0.4031635  0.3418571  -1.179
+## City_Meerut                                0.0280946  0.0183451   1.531
+## City_Mihir                                 0.2822359  0.3417274   0.826
+## City_Mira                                  0.3353651  0.3417061   0.981
+## City_Mumbai                               -0.0406877  0.0192089  -2.118
+## City_Nagpur                               -0.0280660  0.0193732  -1.449
+## City_Nalini                               -0.0599887  0.3417367  -0.176
+## City_Nalyan                                       NA         NA      NA
+## City_Nandini                                      NA         NA      NA
+## City_Nashik                                0.0077001  0.0206157   0.374
+## City_Patna                                 0.0355389  0.0174010   2.042
+## City_Pune                                 -0.0045924  0.0174423  -0.263
+## City_Rajkot                                0.0018587  0.0182987   0.102
+## City_Rashi                                -0.0332679  0.3419864  -0.097
+## City_Reyansh                                      NA         NA      NA
+## City_Saanvi                                0.4427198  0.2419012   1.830
+## City_Srinagar                             -0.0030962  0.0161801  -0.191
+## City_Surat                                 0.0084782  0.0170037   0.499
+## City_Thane                                 0.0146269  0.0168149   0.870
+## City_Vaanya                                0.4918477  0.3418581   1.439
+## City_Vadodara                             -0.0031756  0.0191179  -0.166
+## City_Varanasi                             -0.0090067  0.0193115  -0.466
+## `City_Vasai-Virar`                        -0.0074822  0.0163082  -0.459
+## City_Visakhapatnam                                NA         NA      NA
+## Academic.Pressure                          0.1080479  0.0017563  61.520
+## CGPA                                       0.0050231  0.0015781   3.183
+## Study.Satisfaction                        -0.0283831  0.0017120 -16.579
+## `Sleep.Duration_&#39;5-6 hours&#39;`               0.0317086  0.0069114   4.588
+## `Sleep.Duration_&#39;7-8 hours&#39;`               0.0376044  0.0066582   5.648
+## `Sleep.Duration_&#39;Less than 5 hours&#39;`       0.0707015  0.0064781  10.914
+## `Sleep.Duration_&#39;More than 8 hours&#39;`              NA         NA      NA
+## Dietary.Habits_Healthy                    -0.1311164  0.0058477 -22.422
+## Dietary.Habits_Moderate                   -0.0714202  0.0054363 -13.138
+## Dietary.Habits_Unhealthy                          NA         NA      NA
+## `Degree_&#39;Class 12&#39;`                       -0.0411589  0.0185844  -2.215
+## Degree_B.Arch                             -0.0097590  0.0198301  -0.492
+## Degree_B.Com                              -0.0366242  0.0197585  -1.854
+## Degree_B.Ed                               -0.0241669  0.0192479  -1.256
+## Degree_B.Pharm                            -0.0353001  0.0217814  -1.621
+## Degree_B.Tech                             -0.0128946  0.0204791  -0.630
+## Degree_BA                                 -0.0271611  0.0232105  -1.170
+## Degree_BBA                                -0.0191251  0.0224326  -0.853
+## Degree_BCA                                -0.0148775  0.0198388  -0.750
+## Degree_BE                                 -0.0166992  0.0230226  -0.725
+## Degree_BHM                                -0.0277379  0.0211442  -1.312
+## Degree_BSc                                -0.0033204  0.0214990  -0.154
+## Degree_LLB                                -0.0067316  0.0225235  -0.299
+## Degree_LLM                                 0.0069203  0.0242258   0.286
+## Degree_M.Com                              -0.0295670  0.0221607  -1.334
+## Degree_M.Ed                               -0.0186053  0.0216997  -0.857
+## Degree_M.Pharm                            -0.0396998  0.0232916  -1.704
+## Degree_M.Tech                             -0.0238152  0.0207867  -1.146
+## Degree_MA                                 -0.0275893  0.0236402  -1.167
+## Degree_MBA                                -0.0244457  0.0234702  -1.042
+## Degree_MBBS                               -0.0009360  0.0224951  -0.042
+## Degree_MCA                                -0.0074889  0.0208293  -0.360
+## Degree_MD                                 -0.0192937  0.0235080  -0.821
+## Degree_ME                                 -0.0167517  0.0336402  -0.498
+## Degree_MHM                                -0.0025866  0.0333761  -0.077
+## Degree_MSc                                -0.0260363  0.0203209  -1.281
+## Degree_Others                              0.0776712  0.0748346   1.038
+## Degree_PhD                                        NA         NA      NA
+## Have.you.ever.had.suicidal.thoughts.._No  -0.3821575  0.0050799 -75.230
+## Have.you.ever.had.suicidal.thoughts.._Yes         NA         NA      NA
+## Work.Study.Hours                           0.0140149  0.0006238  22.465
+## Financial.Stress                           0.0704197  0.0016493  42.697
+## Family.History.of.Mental.Illness_No       -0.0272800  0.0045873  -5.947
+## Family.History.of.Mental.Illness_Yes              NA         NA      NA
+##                                           Pr(&gt;|t|)    
+## (Intercept)                                &lt; 2e-16 ***
+## Gender_Female                              0.94510    
+## Gender_Male                                     NA    
+## Age                                        &lt; 2e-16 ***
+## `City_&#39;Less Delhi&#39;`                        0.85380    
+## `City_&#39;Less than 5 Kalyan&#39;`                0.52005    
+## City_3.0                                   0.98492    
+## City_Agra                                  0.34051    
+## City_Ahmedabad                             0.04209 *  
+## City_Bangalore                             0.43497    
+## City_Bhavna                                0.74205    
+## City_Bhopal                                0.37657    
+## City_Chennai                               0.96331    
+## City_City                                  0.27763    
+## City_Delhi                                 0.43048    
+## City_Faridabad                             0.25992    
+## City_Gaurav                                0.93085    
+## City_Ghaziabad                             0.76389    
+## City_Harsh                                 0.89389    
+## City_Harsha                                0.49745    
+## City_Hyderabad                             0.03340 *  
+## City_Indore                                0.69218    
+## City_Jaipur                                0.06198 .  
+## City_Kalyan                                0.18044    
+## City_Kanpur                                0.59425    
+## City_Khaziabad                             0.53340    
+## City_Kibara                                     NA    
+## City_Kolkata                               0.12165    
+## City_Lucknow                               0.42440    
+## City_Ludhiana                              0.85747    
+## City_M.Com                                 0.96948    
+## City_M.Tech                                     NA    
+## City_ME                                    0.23828    
+## City_Meerut                                0.12567    
+## City_Mihir                                 0.40886    
+## City_Mira                                  0.32638    
+## City_Mumbai                                0.03417 *  
+## City_Nagpur                                0.14744    
+## City_Nalini                                0.86066    
+## City_Nalyan                                     NA    
+## City_Nandini                                    NA    
+## City_Nashik                                0.70877    
+## City_Patna                                 0.04113 *  
+## City_Pune                                  0.79233    
+## City_Rajkot                                0.91909    
+## City_Rashi                                 0.92251    
+## City_Reyansh                                    NA    
+## City_Saanvi                                0.06724 .  
+## City_Srinagar                              0.84825    
+## City_Surat                                 0.61806    
+## City_Thane                                 0.38438    
+## City_Vaanya                                0.15024    
+## City_Vadodara                              0.86807    
+## City_Varanasi                              0.64094    
+## `City_Vasai-Virar`                         0.64638    
+## City_Visakhapatnam                              NA    
+## Academic.Pressure                          &lt; 2e-16 ***
+## CGPA                                       0.00146 ** 
+## Study.Satisfaction                         &lt; 2e-16 ***
+## `Sleep.Duration_&#39;5-6 hours&#39;`              4.50e-06 ***
+## `Sleep.Duration_&#39;7-8 hours&#39;`              1.64e-08 ***
+## `Sleep.Duration_&#39;Less than 5 hours&#39;`       &lt; 2e-16 ***
+## `Sleep.Duration_&#39;More than 8 hours&#39;`            NA    
+## Dietary.Habits_Healthy                     &lt; 2e-16 ***
+## Dietary.Habits_Moderate                    &lt; 2e-16 ***
+## Dietary.Habits_Unhealthy                        NA    
+## `Degree_&#39;Class 12&#39;`                        0.02679 *  
+## Degree_B.Arch                              0.62263    
+## Degree_B.Com                               0.06381 .  
+## Degree_B.Ed                                0.20929    
+## Degree_B.Pharm                             0.10511    
+## Degree_B.Tech                              0.52893    
+## Degree_BA                                  0.24193    
+## Degree_BBA                                 0.39391    
+## Degree_BCA                                 0.45331    
+## Degree_BE                                  0.46825    
+## Degree_BHM                                 0.18958    
+## Degree_BSc                                 0.87726    
+## Degree_LLB                                 0.76504    
+## Degree_LLM                                 0.77514    
+## Degree_M.Com                               0.18215    
+## Degree_M.Ed                                0.39123    
+## Degree_M.Pharm                             0.08831 .  
+## Degree_M.Tech                              0.25193    
+## Degree_MA                                  0.24320    
+## Degree_MBA                                 0.29763    
+## Degree_MBBS                                0.96681    
+## Degree_MCA                                 0.71920    
+## Degree_MD                                  0.41181    
+## Degree_ME                                  0.61851    
+## Degree_MHM                                 0.93823    
+## Degree_MSc                                 0.20012    
+## Degree_Others                              0.29933    
+## Degree_PhD                                      NA    
+## Have.you.ever.had.suicidal.thoughts.._No   &lt; 2e-16 ***
+## Have.you.ever.had.suicidal.thoughts.._Yes       NA    
+## Work.Study.Hours                           &lt; 2e-16 ***
+## Financial.Stress                           &lt; 2e-16 ***
+## Family.History.of.Mental.Illness_No       2.77e-09 ***
+## Family.History.of.Mental.Illness_Yes            NA    
+## ---
+## Signif. codes:  0 &#39;***&#39; 0.001 &#39;**&#39; 0.01 &#39;*&#39; 0.05 &#39;.&#39; 0.1 &#39; &#39; 1
+## 
+## Residual standard error: 0.3413 on 22216 degrees of freedom
+## Multiple R-squared:  0.5209, Adjusted R-squared:  0.519 
+## F-statistic: 277.6 on 87 and 22216 DF,  p-value: &lt; 2.2e-16</code></pre>
 <p>Observem una accuracy de 0.84, prou bona, i la matriu de confusió ens
 indica que la quantitat de falsos positius és lleugerament superior a la
 de falsos negatius; és a dir, el nostre model tendeix a predir
 “Depression=1” més del que seria ideal. Per altra banda, la corva ROC té
 molt bona pinta, i queda sota seu un àrea de 0.94, que és un valor molt
 bo.</p>
+<p>Pel que fa als coeficients, observarem quins tenen un coeficient més
+gran i, alhora, un p-valor petit. En aquesta categoria trobem
+<code>Academic.Pressure</code> (coeficient 0.1080479, p-valor &lt; 2e-16
+), <code>Dietary.Habits_Healthy</code>(coeficient -0.1311164, p-valor
+&lt; 2e-16 ), i
+<code>Have.you.ever.had.suicidal.thoughts.._No</code>(coeficient
+-0.3821575, p-valor &lt; 2e-16 ). Això ens explica que la pressió
+acadèmica influencia positivament a que el resultat sigui de depressió,
+mentre que els hàbits alimentaris saludables i la manca de pensaments
+suicides ho influencien negativament. També volem destacar aquelles
+columnes amb un coeficient major que 0.05 en valor absolut:
+<code>Financial.Stress</code>,
+<code>Sleep.Duration_&#39;Less than 5 hours&#39;</code> (que tenen influència
+positiva) i <code>Dietary.Habits_Moderate</code> (que té influència
+negativa). Finalment, <code>Sleep.Duration_&#39;5-6 hours&#39;</code>,
+<code>Sleep.Duration_&#39;7-8 hours&#39;</code> i <code>Work.Study.Hours</code>
+afecten lleugera i positivament, mentre que
+<code>Study.Satisfaction</code>,
+<code>Family.History.of.Mental.Illness_No</code> i <code>Age</code>,
+negativament.</p>
 <p>En aquest cas, com que els casos de <code>Depression=1</code> no són
 més que el doble dels de <code>Depression=0</code>, no s’aconsella fer
 oversampling; i els mètodes més comuns per fer-lo <a href="https://www.rdocumentation.org/packages/smotefamily/versions/1.4.0/topics/SMOTE"><code>SMOTE</code></a>
@@ -6483,6 +6722,12 @@ Family.History.of.Mental.Illness_No
 ## </code></pre>
 <p>I l’accuracy ha pujat fins a 0.84; tot i això, el nostre model lineal
 ha donat millors resultats.</p>
+<p>Si mirem els valors d’importància, trobem que
+<code>Academic.Pressure</code> té el més alt, amb diferència, seguit de
+<code>Financial.Stress</code> i <code>Age</code>.
+<code>Work.Study.Hours</code>, <code>Dietary.Habits_Unhealthy</code>,
+<code>Study.Satisfaction</code> i la presència o no de pensaments
+suicides, també tenen una importància gran.</p>
 </div>
 </div>
 <div id="model-no-supervisat-clustering-destudiants" class="section level2">
