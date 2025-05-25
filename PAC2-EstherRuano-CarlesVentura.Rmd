@@ -815,6 +815,11 @@ El contrast d’hipòtesis no proporciona evidència estadística suficient per 
 
 # Conclusions 
 
-> TODO
+A partir de l’anàlisi realitzat, s’ha constatat que els models supervisats utilitzats —tant la regressió lineal com el random forest— han mostrat una capacitat predictiva elevada, amb valors d’accuracy propers al 84%, destacant especialment el model de regressió lineal amb una AUC de 0,94 que indica una molt bona capacitat de discriminació. La neteja prèvia de variables ha contribuït a mantenir i fins i tot millorar lleugerament el rendiment del model random forest, posant de manifest la rellevància d’una selecció adequada de variables. Aquests models ens han mostrat la pressió acadèmica com a element clau per a la predicció de depressió, juntament amb l’estrès financer i les hores d’estudi. Altres factors com els habits saludables (d’alimentació i son) així com la presència de pensaments suicides també tenen importància, però canvia segons el model utilitzat.
 
-> Ha d'incloure com/si hem resolt el problema i la pregunta de recerca
+Pel que fa a l’anàlisi no supervisada, el mètode del colze ha revelat que el nombre òptim de clústers és de 6, i dins d’aquests s’han identificat grups amb alts nivells de depressió associats a un major estrès acadèmic i financer, evidenciant una relació directa entre aquestes variables. També s’ha observat que factors com els pensaments suïcides i la durada del son tenen un paper rellevant en els clústers amb més presència de depressió, fet que en reforça el valor com a possibles indicadors de risc. 
+
+Finalment, tant l’anàlisi descriptiva com el contrast d’hipòtesis mostren que el gènere no és un factor significatiu a l’hora d’explicar la presència o absència de depressió, ja que les proporcions d’homes i dones afectats són pràcticament idèntiques.
+
+Per tant, es pot concloure que els models aplicats són útils per detectar patrons de risc relacionats amb la depressió, especialment quan es consideren variables relacionades amb l’estrès i la salut mental, mentre que factors com el gènere no resulten determinants en aquesta anàlisi.
+
